@@ -7,11 +7,12 @@ import os
 from database import engine, Base
 from routers import auth, locations, cases, stats
 
+os.makedirs("uploads", exist_ok=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
-    os.makedirs("uploads", exist_ok=True)
     yield
 
 

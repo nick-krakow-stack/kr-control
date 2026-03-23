@@ -1,7 +1,7 @@
 // API-Konfiguration
 // Für lokale Entwicklung: http://localhost:8000
 // Für Produktion: https://deine-backend-url.railway.app
-export const API_BASE = "http://localhost:8000";
+export const API_BASE = "https://kr-control-production.up.railway.app";
 
 export const STATUS_LABELS = {
   new: "Neu",
