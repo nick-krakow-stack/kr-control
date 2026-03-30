@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { STATUS_LABELS, STATUS_COLORS, CASE_TYPE_LABELS } from "../config.js";
+import { STATUS_LABELS, STATUS_COLORS, isSelfControl } from "../config.js";
 
 export async function renderDashboard() {
   return `
@@ -9,7 +9,6 @@ export async function renderDashboard() {
         <p class="text-slate-500 text-sm mt-1">Übersicht aller Aktivitäten</p>
       </div>
 
-      <!-- Stat Cards -->
       <div id="statCards" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         ${[1,2,3,4].map(() => `
           <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 animate-pulse">
@@ -20,7 +19,6 @@ export async function renderDashboard() {
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Recent Cases -->
         <div class="lg:col-span-2">
           <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -33,7 +31,6 @@ export async function renderDashboard() {
           </div>
         </div>
 
-        <!-- Status + Top Locations -->
         <div class="space-y-6">
           <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100">
@@ -71,7 +68,37 @@ export async function initDashboard() {
 }
 
 function renderStatCards(stats) {
-  const cards = [
+  const selfControl = isSelfControl();
+  const cards = selfControl ? [
+    {
+      label: "Meine Meldungen",
+      value: stats.total_cases,
+      sub: `${stats.cases_month} diesen Monat`,
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>`,
+      color: "text-blue-600 bg-blue-50",
+    },
+    {
+      label: "Heute",
+      value: stats.cases_today,
+      sub: `${stats.cases_week} diese Woche`,
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
+      color: "text-indigo-600 bg-indigo-50",
+    },
+    {
+      label: "In Bearbeitung",
+      value: stats.open_cases,
+      sub: "Aktive Vorgänge",
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
+      color: "text-orange-600 bg-orange-50",
+    },
+    {
+      label: "Standorte",
+      value: stats.total_locations,
+      sub: "Zugewiesen",
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>`,
+      color: "text-emerald-600 bg-emerald-50",
+    },
+  ] : [
     {
       label: "Fälle gesamt",
       value: stats.total_cases,
@@ -143,10 +170,7 @@ function renderRecentCases(cases) {
 
 function renderStatusDist(dist, total) {
   const el = document.getElementById("statusDist");
-  if (!dist.length) {
-    el.innerHTML = `<div class="text-slate-400 text-sm p-2">Keine Daten</div>`;
-    return;
-  }
+  if (!dist.length) { el.innerHTML = `<div class="text-slate-400 text-sm p-2">Keine Daten</div>`; return; }
   el.innerHTML = dist.map((d) => {
     const pct = total > 0 ? Math.round((d.count / total) * 100) : 0;
     return `
@@ -163,28 +187,23 @@ function renderStatusDist(dist, total) {
 
 function renderTopLocations(locations) {
   const el = document.getElementById("topLocations");
-  if (!locations.length) {
-    el.innerHTML = `<div class="text-slate-400 text-sm p-2">Noch keine Fälle</div>`;
-    return;
-  }
+  if (!locations.length) { el.innerHTML = `<div class="text-slate-400 text-sm p-2">Noch keine Fälle</div>`; return; }
   const max = locations[0]?.count || 1;
-  el.innerHTML = locations.map((l, i) => `
+  el.innerHTML = locations.map((l) => `
     <div class="px-2 py-1.5">
       <div class="flex items-center justify-between mb-1">
         <span class="text-sm text-slate-700 truncate flex-1">${l.name}</span>
         <span class="text-sm font-semibold text-slate-800 ml-2">${l.count}</span>
       </div>
       <div class="w-full bg-slate-100 rounded-full h-1.5">
-        <div class="bg-blue-500 h-1.5 rounded-full transition-all" style="width: ${Math.round((l.count / max) * 100)}%"></div>
+        <div class="bg-blue-500 h-1.5 rounded-full" style="width: ${Math.round((l.count / max) * 100)}%"></div>
       </div>
     </div>
   `).join("");
 }
 
 function formatDateTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleString("de-DE", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit"
+  return new Date(iso).toLocaleString("de-DE", {
+    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }

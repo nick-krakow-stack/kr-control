@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional, List
 
@@ -6,6 +6,63 @@ from typing import Optional, List
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+# --- User ---
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    role: str  # admin, mitarbeiter, self_control_business, self_control_private
+    recall_hours: Optional[int] = 24
+
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+    recall_hours: Optional[int] = None
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: str
+    is_active: bool
+    email_verified: bool
+    recall_hours: int
+    created_at: datetime
+    location_ids: List[int] = []
+
+    class Config:
+        from_attributes = True
+
+
+class UserMeResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: str
+    recall_hours: int
+
+    class Config:
+        from_attributes = True
+
+
+class SetupPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class AssignLocationsRequest(BaseModel):
+    location_ids: List[int]
 
 
 # --- Location ---
@@ -71,6 +128,9 @@ class CaseResponse(BaseModel):
     ordnungsamt_requested_at: Optional[datetime]
     letter_sent_at: Optional[datetime]
     created_at: datetime
+    recall_deadline: Optional[datetime]
+    recalled_at: Optional[datetime]
+    reported_by_user_id: Optional[int]
     images: List[CaseImageResponse] = []
     location: Optional[LocationResponse] = None
 

@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { STATUS_LABELS, STATUS_COLORS, CASE_TYPE_LABELS } from "../config.js";
+import { STATUS_LABELS, STATUS_COLORS, CASE_TYPE_LABELS, isSelfControl, isStaff } from "../config.js";
 
 export async function renderCaseDetail(id) {
   return `
@@ -42,6 +42,20 @@ export async function initCaseDetail(id) {
 function renderDetail(c, location) {
   const isDeadlineOver = c.payment_deadline && new Date(c.payment_deadline) < new Date();
   const isOpen = ["new", "ticket_issued", "in_progress"].includes(c.status);
+  const canRecall = c.status === "pending" && c.recall_deadline && new Date(c.recall_deadline) > new Date();
+  const selfControl = isSelfControl();
+  const staff = isStaff();
+
+  // Widerruf-Countdown
+  let recallCountdown = "";
+  if (c.status === "pending" && c.recall_deadline) {
+    const msLeft = new Date(c.recall_deadline) - new Date();
+    if (msLeft > 0) {
+      const hoursLeft = Math.floor(msLeft / 3600000);
+      const minsLeft = Math.floor((msLeft % 3600000) / 60000);
+      recallCountdown = `${hoursLeft}h ${minsLeft}min`;
+    }
+  }
 
   document.getElementById("caseDetailContent").innerHTML = `
     <!-- Header Card -->
@@ -61,13 +75,38 @@ function renderDetail(c, location) {
             ${c.ticket_number ? `<span>🎫 Ticket: ${c.ticket_number}</span>` : ""}
           </div>
         </div>
-        <button onclick="confirmDeleteCase(${c.id})"
-          class="text-sm text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">
-          Fall löschen
-        </button>
+
+        <div class="flex gap-2 flex-wrap">
+          ${canRecall && selfControl ? `
+            <button id="btnRecall"
+              class="text-sm bg-amber-100 hover:bg-amber-200 text-amber-800 font-medium px-4 py-1.5 rounded-lg transition-colors">
+              ↩ Fall widerrufen
+              ${recallCountdown ? `<span class="text-xs opacity-70 ml-1">(noch ${recallCountdown})</span>` : ""}
+            </button>
+          ` : ""}
+          ${staff ? `
+            <button onclick="confirmDeleteCase(${c.id})"
+              class="text-sm text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">
+              Fall löschen
+            </button>
+          ` : ""}
+        </div>
       </div>
 
-      <!-- Timeline info -->
+      ${c.status === "pending" && recallCountdown ? `
+        <div class="mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+          ⏳ Dieser Fall kann noch <strong>${recallCountdown}</strong> widerrufen werden.
+          Danach wird er automatisch an KR Control übergeben.
+        </div>
+      ` : ""}
+
+      ${c.status === "recalled" ? `
+        <div class="mt-4 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-sm text-rose-800">
+          ↩ Dieser Fall wurde${c.recalled_at ? " am " + formatDateTime(c.recalled_at) : ""} widerrufen.
+        </div>
+      ` : ""}
+
+      <!-- Timeline -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
         <div>
           <div class="text-xs text-slate-400 mb-0.5">Gemeldet</div>
@@ -91,31 +130,36 @@ function renderDetail(c, location) {
       </div>
     </div>
 
-    <!-- Status Update -->
-    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-      <h2 class="font-semibold text-slate-800 mb-4">Status aktualisieren</h2>
-      <div class="flex flex-wrap gap-2 mb-4">
-        ${Object.entries(STATUS_LABELS).map(([val, label]) => `
-          <button onclick="setStatus('${val}', ${c.id})"
-            class="px-3 py-1.5 text-sm rounded-xl border transition-colors font-medium
-              ${c.status === val
-                ? "bg-blue-600 text-white border-blue-600"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
-              }">
-            ${label}
-          </button>
-        `).join("")}
+    <!-- Status Update (nur für Staff) -->
+    ${staff ? `
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+        <h2 class="font-semibold text-slate-800 mb-4">Status aktualisieren</h2>
+        <div class="flex flex-wrap gap-2 mb-4">
+          ${Object.entries(STATUS_LABELS)
+            .filter(([val]) => !["pending", "recalled"].includes(val))
+            .map(([val, label]) => `
+              <button onclick="setStatus('${val}', ${c.id})"
+                class="px-3 py-1.5 text-sm rounded-xl border transition-colors font-medium
+                  ${c.status === val
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }">
+                ${label}
+              </button>
+            `).join("")}
+        </div>
+        <div class="flex gap-3">
+          <input id="ticketNumberInput" type="text" placeholder="Ticket-Nummer (optional)"
+            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            value="${c.ticket_number || ""}"/>
+          <input id="statusNoteInput" type="text" placeholder="Notiz (optional)"
+            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
+        </div>
+        <div id="statusUpdateMsg" class="hidden mt-3 text-sm text-green-600 font-medium">Status aktualisiert ✓</div>
       </div>
-      <div class="flex gap-3">
-        <input id="ticketNumberInput" type="text" placeholder="Ticket-Nummer (optional)"
-          class="input flex-1" value="${c.ticket_number || ""}"/>
-        <input id="statusNoteInput" type="text" placeholder="Notiz zum Status (optional)"
-          class="input flex-1"/>
-      </div>
-      <div id="statusUpdateMsg" class="hidden mt-3 text-sm text-green-600 font-medium">Status aktualisiert ✓</div>
-    </div>
+    ` : ""}
 
-    <!-- Notes -->
+    <!-- Notizen -->
     ${c.notes ? `
       <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
         <h2 class="font-semibold text-slate-800 mb-3">Notizen</h2>
@@ -123,7 +167,7 @@ function renderDetail(c, location) {
       </div>
     ` : ""}
 
-    <!-- Images -->
+    <!-- Fotos -->
     <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
       <h2 class="font-semibold text-slate-800 mb-4">
         Fotos <span class="text-slate-400 font-normal text-sm">(${c.images.length})</span>
@@ -135,15 +179,8 @@ function renderDetail(c, location) {
               class="relative group aspect-square block overflow-hidden rounded-xl border border-slate-200 hover:border-blue-400 transition-colors">
               <img src="${api.imageUrl(img.filename)}" alt="Foto"
                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
-              <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                <svg class="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                </svg>
-              </div>
               <div class="absolute bottom-2 left-2 right-2">
-                <span class="text-xs bg-black/60 text-white px-2 py-0.5 rounded-full">
-                  ${img.image_type}
-                </span>
+                <span class="text-xs bg-black/60 text-white px-2 py-0.5 rounded-full">${img.image_type}</span>
               </div>
             </a>
           `).join("")}
@@ -156,20 +193,29 @@ function renderDetail(c, location) {
     </div>
   `;
 
-  // Bind global functions
+  // Widerruf-Button
+  const recallBtn = document.getElementById("btnRecall");
+  if (recallBtn) {
+    recallBtn.addEventListener("click", async () => {
+      if (!confirm("Fall wirklich widerrufen? KR Control wird diesen Fall dann nicht weiter bearbeiten.")) return;
+      try {
+        await api.recallCase(c.id);
+        const updated = await api.getCase(c.id);
+        const locs = await api.getLocations();
+        renderDetail(updated, locs.find((l) => l.id === updated.location_id));
+      } catch (err) {
+        alert("Fehler: " + err.message);
+      }
+    });
+  }
+
   window.setStatus = async (status, caseId) => {
     try {
       const ticket = document.getElementById("ticketNumberInput")?.value.trim();
       const note = document.getElementById("statusNoteInput")?.value.trim();
-      await api.updateStatus(caseId, {
-        status,
-        ticket_number: ticket || null,
-        notes: note || null,
-      });
+      await api.updateStatus(caseId, { status, ticket_number: ticket || null, notes: note || null });
       const msg = document.getElementById("statusUpdateMsg");
-      msg.classList.remove("hidden");
-      setTimeout(() => msg.classList.add("hidden"), 2000);
-      // Reload
+      if (msg) { msg.classList.remove("hidden"); setTimeout(() => msg.classList.add("hidden"), 2000); }
       const updated = await api.getCase(caseId);
       const locs = await api.getLocations();
       renderDetail(updated, locs.find((l) => l.id === updated.location_id));
@@ -190,9 +236,8 @@ function renderDetail(c, location) {
 }
 
 function formatDateTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleString("de-DE", {
+  return new Date(iso).toLocaleString("de-DE", {
     day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit"
+    hour: "2-digit", minute: "2-digit",
   });
 }

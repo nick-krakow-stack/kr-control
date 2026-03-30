@@ -1,9 +1,10 @@
 import { api } from "../api.js";
-import { CONTRACT_TYPE_LABELS } from "../config.js";
+import { CONTRACT_TYPE_LABELS, isAdmin } from "../config.js";
 
 let allLocations = [];
 
 export async function renderLocations() {
+  const admin = isAdmin();
   return `
     <div class="p-6 lg:p-8 max-w-7xl mx-auto">
       <div class="flex items-center justify-between mb-8">
@@ -11,13 +12,15 @@ export async function renderLocations() {
           <h1 class="text-2xl font-bold text-slate-800">Parkplätze</h1>
           <p class="text-slate-500 text-sm mt-1">Standorte verwalten</p>
         </div>
-        <button id="btnNewLocation"
-          class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
-          Neuer Parkplatz
-        </button>
+        ${admin ? `
+          <button id="btnNewLocation"
+            class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Neuer Parkplatz
+          </button>
+        ` : ""}
       </div>
 
       <div id="locationsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -31,78 +34,77 @@ export async function renderLocations() {
       </div>
     </div>
 
-    <!-- Modal -->
-    <div id="locationModal" class="fixed inset-0 z-50 hidden">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="modalBackdrop"></div>
-      <div class="absolute inset-0 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-            <h3 id="modalTitle" class="text-lg font-semibold text-slate-800">Neuer Parkplatz</h3>
-            <button id="modalClose" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-              <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
+    <!-- Modal (nur Admin) -->
+    ${admin ? `
+      <div id="locationModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="modalBackdrop"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <h3 id="modalTitle" class="text-lg font-semibold text-slate-800">Neuer Parkplatz</h3>
+              <button id="modalClose" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <form id="locationForm" class="p-6 space-y-4">
+              <input type="hidden" id="editLocationId"/>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Parkplatz-Name *</label>
+                  <input id="locName" type="text" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="z.B. Apotheke Musterstraße"/>
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Adresse</label>
+                  <input id="locAddress" type="text" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="Musterstraße 1, 12345 Stadt"/>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Stellplätze</label>
+                  <input id="locSpots" type="number" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="0"/>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Max. Parkdauer (Min.)</label>
+                  <input id="locDuration" type="number" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="120"/>
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Auftraggeber / Kunde</label>
+                  <input id="locClient" type="text" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="Name des Unternehmens"/>
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Vertragstyp</label>
+                  <select id="locContract" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    <option value="standard">Standard (KR-Kontrolle)</option>
+                    <option value="self_control">Self-Control</option>
+                  </select>
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Notizen</label>
+                  <textarea id="locNotes" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none" rows="3" placeholder="Interne Notizen..."></textarea>
+                </div>
+              </div>
+              <div id="locationFormError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl"></div>
+              <div class="flex gap-3 pt-2">
+                <button type="button" id="btnModalCancel"
+                  class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors">
+                  Abbrechen
+                </button>
+                <button type="submit" id="btnModalSave"
+                  class="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors">
+                  Speichern
+                </button>
+              </div>
+            </form>
           </div>
-          <form id="locationForm" class="p-6 space-y-4">
-            <input type="hidden" id="editLocationId"/>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div class="col-span-2">
-                <label class="label">Parkplatz-Name *</label>
-                <input id="locName" type="text" required class="input" placeholder="z.B. Apotheke Musterstraße"/>
-              </div>
-              <div class="col-span-2">
-                <label class="label">Adresse</label>
-                <input id="locAddress" type="text" class="input" placeholder="Musterstraße 1, 12345 Stadt"/>
-              </div>
-              <div>
-                <label class="label">Stellplätze</label>
-                <input id="locSpots" type="number" min="0" class="input" placeholder="0"/>
-              </div>
-              <div>
-                <label class="label">Max. Parkdauer (Min.)</label>
-                <input id="locDuration" type="number" min="0" class="input" placeholder="120"/>
-              </div>
-              <div class="col-span-2">
-                <label class="label">Auftraggeber / Kunde</label>
-                <input id="locClient" type="text" class="input" placeholder="Name des Unternehmens"/>
-              </div>
-              <div class="col-span-2">
-                <label class="label">Vertragstyp</label>
-                <select id="locContract" class="input">
-                  <option value="standard">Standard (KR-Kontrolle)</option>
-                  <option value="self_control">Self-Control</option>
-                </select>
-              </div>
-              <div class="col-span-2">
-                <label class="label">Notizen</label>
-                <textarea id="locNotes" class="input resize-none" rows="3" placeholder="Interne Notizen..."></textarea>
-              </div>
-            </div>
-
-            <div id="locationFormError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl"></div>
-
-            <div class="flex gap-3 pt-2">
-              <button type="button" id="btnModalCancel"
-                class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors">
-                Abbrechen
-              </button>
-              <button type="submit" id="btnModalSave"
-                class="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors">
-                Speichern
-              </button>
-            </div>
-          </form>
         </div>
       </div>
-    </div>
+    ` : ""}
   `;
 }
 
 export async function initLocations() {
   await loadLocations();
-  setupModal();
+  if (isAdmin()) setupModal();
 }
 
 async function loadLocations() {
@@ -118,16 +120,13 @@ async function loadLocations() {
 
 function renderGrid() {
   const grid = document.getElementById("locationsGrid");
+  const admin = isAdmin();
+
   if (!allLocations.length) {
     grid.innerHTML = `
       <div class="col-span-full bg-white rounded-2xl p-12 text-center border border-dashed border-slate-200">
-        <div class="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-          <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-          </svg>
-        </div>
         <p class="text-slate-500 font-medium">Noch keine Parkplätze</p>
-        <p class="text-slate-400 text-sm mt-1">Legen Sie Ihren ersten Standort an.</p>
+        ${admin ? `<p class="text-slate-400 text-sm mt-1">Legen Sie Ihren ersten Standort an.</p>` : ""}
       </div>
     `;
     return;
@@ -139,29 +138,29 @@ function renderGrid() {
         <div class="flex-1 min-w-0">
           <h3 class="font-semibold text-slate-800 truncate">${loc.name}</h3>
           <span class="text-xs px-2 py-0.5 rounded-full font-medium ${
-            loc.contract_type === "self_control"
-              ? "bg-purple-100 text-purple-700"
-              : "bg-blue-100 text-blue-700"
+            loc.contract_type === "self_control" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
           } mt-1 inline-block">
             ${CONTRACT_TYPE_LABELS[loc.contract_type] || loc.contract_type}
           </span>
         </div>
-        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-          <button onclick="editLocation(${loc.id})"
-            class="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-500">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-            </svg>
-          </button>
-          <button onclick="deleteLocation(${loc.id}, '${loc.name.replace(/'/g, "\\'")}')"
-            class="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-slate-500 hover:text-red-500">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-            </svg>
-          </button>
-        </div>
+        ${admin ? `
+          <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+            <button onclick="editLocation(${loc.id})"
+              class="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+            </button>
+            <button onclick="deleteLocation(${loc.id}, '${loc.name.replace(/'/g, "\\'")}')"
+              class="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-slate-500 hover:text-red-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </div>
+        ` : ""}
       </div>
 
       ${loc.address ? `<p class="text-sm text-slate-500 mb-3 truncate">${loc.address}</p>` : ""}
@@ -243,7 +242,6 @@ function setupModal() {
     }
   });
 
-  // Global functions for inline event handlers
   window.editLocation = (id) => {
     const loc = allLocations.find((l) => l.id === id);
     if (!loc) return;
