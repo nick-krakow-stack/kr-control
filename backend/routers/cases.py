@@ -173,6 +173,9 @@ def recall_case(
     db: Session = Depends(get_db),
 ):
     """Self-Control User widerruft einen Fall innerhalb des Widerruf-Fensters."""
+    if current_user.role not in SELF_CONTROL_ROLES:
+        raise HTTPException(status_code=403, detail="Nur Self-Control-Nutzer können Fälle widerrufen")
+
     case = _get_case_or_404(case_id, db)
     _check_location_access(case.location_id, current_user)
 

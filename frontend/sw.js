@@ -1,4 +1,4 @@
-const CACHE_NAME = "kr-control-v1";
+const CACHE_NAME = "kr-control-v2";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
@@ -12,6 +12,10 @@ const STATIC_ASSETS = [
   "/js/views/cases.js",
   "/js/views/case-new.js",
   "/js/views/case-detail.js",
+  "/js/views/password-setup.js",
+  "/js/views/admin-users.js",
+  "/js/views/self-control-report.js",
+  "/js/views/profile.js",
 ];
 
 // Install: cache static assets
