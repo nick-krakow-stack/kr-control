@@ -1,7 +1,5 @@
-import smtplib
-import ssl
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import urllib.request
+import json as json_module
 from config import settings
 import logging
 
@@ -9,32 +7,32 @@ logger = logging.getLogger(__name__)
 
 
 def _send_email(to_email: str, subject: str, html_body: str) -> bool:
-    """Sendet eine E-Mail via SMTP SSL. Gibt True bei Erfolg zurück."""
-    if not settings.smtp_user or not settings.smtp_password:
-        logger.warning("SMTP nicht konfiguriert – E-Mail wird nicht gesendet.")
+    """Sendet eine E-Mail via Resend API. Gibt True bei Erfolg zurück."""
+    if not settings.resend_api_key:
+        logger.warning("Resend API-Key nicht konfiguriert – E-Mail wird nicht gesendet.")
         return False
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"{settings.smtp_from_name} <{settings.smtp_from or settings.smtp_user}>"
-    msg["To"] = to_email
+    payload = json_module.dumps({
+        "from": f"{settings.smtp_from_name} <{settings.smtp_from}>",
+        "to": [to_email],
+        "subject": subject,
+        "html": html_body,
+    }).encode("utf-8")
 
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {settings.resend_api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
 
     try:
-        context = ssl.create_default_context()
-        if settings.smtp_ssl:
-            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=context) as server:
-                server.login(settings.smtp_user, settings.smtp_password)
-                server.sendmail(settings.smtp_from or settings.smtp_user, to_email, msg.as_string())
-        else:
-            with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
-                server.ehlo()
-                server.starttls(context=context)
-                server.login(settings.smtp_user, settings.smtp_password)
-                server.sendmail(settings.smtp_from or settings.smtp_user, to_email, msg.as_string())
-        logger.info(f"E-Mail gesendet an {to_email}: {subject}")
-        return True
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            logger.info(f"E-Mail gesendet an {to_email}: {subject}")
+            return True
     except Exception as e:
         logger.error(f"E-Mail-Fehler an {to_email}: {e}")
         return False

@@ -16,13 +16,9 @@ class Settings(BaseSettings):
     # Standard-Widerruf-Fenster in Stunden
     default_recall_hours: int = 24
 
-    # SMTP / Email
-    smtp_host: str = "w013a015.kasserver.com"
-    smtp_port: int = 465
-    smtp_ssl: bool = True
-    smtp_user: str = ""
-    smtp_password: str = ""
-    smtp_from: str = ""
+    # Email
+    resend_api_key: str = ""
+    smtp_from: str = "noreply@dragoncity.eu"
     smtp_from_name: str = "KR Control"
 
     # Frontend-URL für Email-Links
