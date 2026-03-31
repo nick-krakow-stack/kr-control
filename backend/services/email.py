@@ -23,13 +23,16 @@ def _send_email(to_email: str, subject: str, html_body: str) -> bool:
 
     try:
         context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=context) as server:
-            server.login(settings.smtp_user, settings.smtp_password)
-            server.sendmail(
-                settings.smtp_from or settings.smtp_user,
-                to_email,
-                msg.as_string(),
-            )
+        if settings.smtp_ssl:
+            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=context) as server:
+                server.login(settings.smtp_user, settings.smtp_password)
+                server.sendmail(settings.smtp_from or settings.smtp_user, to_email, msg.as_string())
+        else:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+                server.ehlo()
+                server.starttls(context=context)
+                server.login(settings.smtp_user, settings.smtp_password)
+                server.sendmail(settings.smtp_from or settings.smtp_user, to_email, msg.as_string())
         logger.info(f"E-Mail gesendet an {to_email}: {subject}")
         return True
     except Exception as e:
