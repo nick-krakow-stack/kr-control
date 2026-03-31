@@ -1,4 +1,5 @@
 import urllib.request
+import urllib.error
 import json as json_module
 from config import settings
 import logging
@@ -33,6 +34,10 @@ def _send_email(to_email: str, subject: str, html_body: str) -> bool:
         with urllib.request.urlopen(req, timeout=15) as resp:
             logger.info(f"E-Mail gesendet an {to_email}: {subject}")
             return True
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        logger.error(f"E-Mail-Fehler an {to_email}: HTTP {e.code} – {body}")
+        return False
     except Exception as e:
         logger.error(f"E-Mail-Fehler an {to_email}: {e}")
         return False
