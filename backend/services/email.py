@@ -1,6 +1,4 @@
-import urllib.request
-import urllib.error
-import json as json_module
+import requests
 from config import settings
 import logging
 
@@ -13,30 +11,22 @@ def _send_email(to_email: str, subject: str, html_body: str) -> bool:
         logger.warning("Resend API-Key nicht konfiguriert – E-Mail wird nicht gesendet.")
         return False
 
-    payload = json_module.dumps({
-        "from": f"{settings.smtp_from_name} <{settings.smtp_from}>",
-        "to": [to_email],
-        "subject": subject,
-        "html": html_body,
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {settings.resend_api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            json={
+                "from": f"{settings.smtp_from_name} <{settings.smtp_from}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_body,
+            },
+            headers={"Authorization": f"Bearer {settings.resend_api_key}"},
+            timeout=15,
+        )
+        if resp.status_code in (200, 201):
             logger.info(f"E-Mail gesendet an {to_email}: {subject}")
             return True
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        logger.error(f"E-Mail-Fehler an {to_email}: HTTP {e.code} – {body}")
+        logger.error(f"E-Mail-Fehler an {to_email}: HTTP {resp.status_code} – {resp.text}")
         return False
     except Exception as e:
         logger.error(f"E-Mail-Fehler an {to_email}: {e}")
