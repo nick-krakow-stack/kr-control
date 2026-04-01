@@ -64,26 +64,35 @@ export async function renderCaseNew() {
           </div>
 
           <!-- Plate widget -->
-          <div class="flex items-stretch border-[2.5px] border-slate-800 rounded-xl overflow-hidden shadow-md max-w-xs mx-auto">
-            <!-- EU strip -->
-            <div class="bg-blue-700 flex flex-col items-center justify-center gap-0.5 px-2.5 min-w-[34px] select-none">
-              <svg viewBox="0 0 12 9" class="w-4 h-3">
-                <circle cx="6" cy="1.2" r="0.7" fill="#FFD700"/>
-                <circle cx="9" cy="2.5" r="0.7" fill="#FFD700"/>
-                <circle cx="10" cy="5.5" r="0.7" fill="#FFD700"/>
-                <circle cx="7.7" cy="7.8" r="0.7" fill="#FFD700"/>
-                <circle cx="4.3" cy="7.8" r="0.7" fill="#FFD700"/>
-                <circle cx="2" cy="5.5" r="0.7" fill="#FFD700"/>
-                <circle cx="3" cy="2.5" r="0.7" fill="#FFD700"/>
+          <div class="flex items-stretch rounded-xl overflow-hidden shadow-lg max-w-sm mx-auto"
+               style="border: 3px solid #1a1a1a;">
+            <!-- EU strip: 12 stars, fixed width, no shrink -->
+            <div class="flex flex-col items-center justify-center gap-1 select-none py-3"
+                 style="background: #003399; width: 52px; flex-shrink: 0;">
+              <svg viewBox="0 0 20 20" width="22" height="22">
+                <circle cx="10"    cy="3"     r="0.9" fill="#FFCC00"/>
+                <circle cx="13.5"  cy="3.94"  r="0.9" fill="#FFCC00"/>
+                <circle cx="16.06" cy="6.5"   r="0.9" fill="#FFCC00"/>
+                <circle cx="17"    cy="10"    r="0.9" fill="#FFCC00"/>
+                <circle cx="16.06" cy="13.5"  r="0.9" fill="#FFCC00"/>
+                <circle cx="13.5"  cy="16.06" r="0.9" fill="#FFCC00"/>
+                <circle cx="10"    cy="17"    r="0.9" fill="#FFCC00"/>
+                <circle cx="6.5"   cy="16.06" r="0.9" fill="#FFCC00"/>
+                <circle cx="3.94"  cy="13.5"  r="0.9" fill="#FFCC00"/>
+                <circle cx="3"     cy="10"    r="0.9" fill="#FFCC00"/>
+                <circle cx="3.94"  cy="6.5"   r="0.9" fill="#FFCC00"/>
+                <circle cx="6.5"   cy="3.94"  r="0.9" fill="#FFCC00"/>
               </svg>
-              <span class="text-white text-[9px] font-bold leading-none tracking-tight">D</span>
+              <span style="color: white; font-size: 11px; font-weight: 900; letter-spacing: 1px; line-height: 1;">D</span>
             </div>
+            <!-- Divider -->
+            <div style="width: 3px; background: #1a1a1a; flex-shrink: 0;"></div>
             <!-- Input -->
             <input id="casePlate" type="text" required
-              class="flex-1 text-[1.6rem] font-extrabold tracking-[0.12em] text-center text-slate-900
-                     placeholder-slate-300 px-4 py-4 uppercase bg-white focus:outline-none"
-              style="font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif;"
-              placeholder="B·KR 1234" autocomplete="off" inputmode="text"/>
+              class="flex-1 text-center uppercase bg-white focus:outline-none placeholder-slate-300 text-slate-900"
+              style="font-family: 'Arial Black', Impact, sans-serif; font-size: 2rem; font-weight: 900;
+                     letter-spacing: 0.1em; padding: 14px 16px;"
+              placeholder="B · KR 1234" autocomplete="off" inputmode="text"/>
           </div>
           <p class="text-center text-xs text-slate-400 mt-2.5">Wird automatisch großgeschrieben</p>
         </div>
