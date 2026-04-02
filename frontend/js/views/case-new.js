@@ -63,13 +63,13 @@ export async function renderCaseNew() {
             <span class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Kennzeichen</span>
           </div>
 
-          <!-- Plate widget -->
-          <div class="flex items-stretch rounded-xl overflow-hidden shadow-lg max-w-sm mx-auto"
-               style="border: 3px solid #1a1a1a;">
-            <!-- EU strip: 12 stars, fixed width, no shrink -->
-            <div class="flex flex-col items-center justify-center gap-1 select-none py-3"
-                 style="background: #003399; width: 52px; flex-shrink: 0;">
-              <svg viewBox="0 0 20 20" width="22" height="22">
+          <!-- Plate widget: 3 fields -->
+          <div class="flex items-stretch rounded-xl overflow-hidden shadow-lg mx-auto"
+               style="border: 3px solid #1a1a1a; max-width: 100%;">
+            <!-- EU strip: fixed width, no shrink -->
+            <div class="flex flex-col items-center justify-center gap-1 select-none"
+                 style="background: #003399; width: 48px; flex-shrink: 0; padding: 10px 0;">
+              <svg viewBox="0 0 20 20" width="20" height="20">
                 <circle cx="10"    cy="3"     r="0.9" fill="#FFCC00"/>
                 <circle cx="13.5"  cy="3.94"  r="0.9" fill="#FFCC00"/>
                 <circle cx="16.06" cy="6.5"   r="0.9" fill="#FFCC00"/>
@@ -83,18 +83,37 @@ export async function renderCaseNew() {
                 <circle cx="3.94"  cy="6.5"   r="0.9" fill="#FFCC00"/>
                 <circle cx="6.5"   cy="3.94"  r="0.9" fill="#FFCC00"/>
               </svg>
-              <span style="color: white; font-size: 11px; font-weight: 900; letter-spacing: 1px; line-height: 1;">D</span>
+              <span style="color: white; font-size: 10px; font-weight: 900; letter-spacing: 1px; line-height: 1;">D</span>
             </div>
             <!-- Divider -->
             <div style="width: 3px; background: #1a1a1a; flex-shrink: 0;"></div>
-            <!-- Input -->
-            <input id="casePlate" type="text" required
-              class="flex-1 text-center uppercase bg-white focus:outline-none placeholder-slate-300 text-slate-900"
-              style="font-family: 'Arial Black', Impact, sans-serif; font-size: 2rem; font-weight: 900;
-                     letter-spacing: 0.1em; padding: 14px 16px;"
-              placeholder="B · KR 1234" autocomplete="off" inputmode="text"/>
+            <!-- Three input fields -->
+            <div class="flex items-center flex-1 bg-white" style="padding: 0 8px; min-width: 0;">
+              <input id="plateOrt" type="text" maxlength="3" autocomplete="off" inputmode="text"
+                placeholder="HL"
+                style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
+                       letter-spacing: 0.05em; width: 3ch; border: none; outline: none; text-align: center;
+                       text-transform: uppercase; background: transparent; color: #1a1a1a;
+                       padding: 12px 0; flex-shrink: 0;"/>
+              <span style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
+                           color: #1a1a1a; flex-shrink: 0; padding: 0 3px; user-select: none; line-height: 1;">·</span>
+              <input id="plateBuchst" type="text" maxlength="2" autocomplete="off" inputmode="text"
+                placeholder="VS"
+                style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
+                       letter-spacing: 0.05em; width: 2.4ch; border: none; outline: none; text-align: center;
+                       text-transform: uppercase; background: transparent; color: #1a1a1a;
+                       padding: 12px 0; flex-shrink: 0;"/>
+              <span style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
+                           color: transparent; flex-shrink: 0; padding: 0 2px; user-select: none;">·</span>
+              <input id="plateNr" type="text" maxlength="5" autocomplete="off" inputmode="text"
+                placeholder="1820"
+                style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
+                       letter-spacing: 0.05em; flex: 1; min-width: 3ch; border: none; outline: none;
+                       text-align: center; text-transform: uppercase; background: transparent;
+                       color: #1a1a1a; padding: 12px 0;"/>
+            </div>
           </div>
-          <p class="text-center text-xs text-slate-400 mt-2.5">Wird automatisch großgeschrieben</p>
+          <p class="text-center text-xs text-slate-400 mt-2.5">Ortskennzeichen · Buchstaben · Nummer</p>
         </div>
 
         <!-- ② Standort -->
@@ -266,12 +285,34 @@ export async function renderCaseNew() {
 export function initCaseNew() {
   selectedFiles = [];
 
-  // ── Kennzeichen uppercase ──────────────────────────────────────
-  document.getElementById("casePlate").addEventListener("input", (e) => {
-    const pos = e.target.selectionStart;
-    e.target.value = e.target.value.toUpperCase();
-    e.target.setSelectionRange(pos, pos);
-  });
+  // ── Kennzeichen: 3 Felder mit Auto-Advance ────────────────────
+  const plateOrt   = document.getElementById("plateOrt");
+  const plateBuchst = document.getElementById("plateBuchst");
+  const plateNr    = document.getElementById("plateNr");
+
+  function plateInput(e, maxLen, nextEl) {
+    const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    e.target.value = v;
+    if (nextEl && v.length >= maxLen) nextEl.focus();
+  }
+  function plateKeydown(e, prevEl, nextEl) {
+    if (e.key === "Backspace" && e.target.value === "" && prevEl) {
+      e.preventDefault();
+      prevEl.focus();
+    }
+    if (e.key === " " && nextEl) {
+      e.preventDefault();
+      nextEl.focus();
+    }
+  }
+
+  plateOrt.addEventListener("input",   (e) => plateInput(e, 3, plateBuchst));
+  plateBuchst.addEventListener("input", (e) => plateInput(e, 2, plateNr));
+  plateNr.addEventListener("input",    (e) => { e.target.value = e.target.value.toUpperCase(); });
+
+  plateOrt.addEventListener("keydown",    (e) => plateKeydown(e, null,      plateBuchst));
+  plateBuchst.addEventListener("keydown", (e) => plateKeydown(e, plateOrt,  plateNr));
+  plateNr.addEventListener("keydown",     (e) => plateKeydown(e, plateBuchst, null));
 
   // ── Standort-Kacheln ──────────────────────────────────────────
   const locationCards = document.getElementById("locationCards");
@@ -390,14 +431,17 @@ async function submitCase(e) {
   errorEl.classList.add("hidden");
 
   const locationId = document.getElementById("caseLocation").value;
-  const plate = document.getElementById("casePlate").value.trim();
+  const ort    = document.getElementById("plateOrt").value.trim();
+  const buchst = document.getElementById("plateBuchst").value.trim();
+  const nr     = document.getElementById("plateNr").value.trim();
+  const plate  = [ort, buchst, nr].filter(Boolean).join(" ");
   const dateVal = document.getElementById("caseDate").value;
   const timeVal = document.getElementById("caseTime").value;
   const caseType = document.querySelector('input[name="caseType"]:checked')?.value || "standard";
   const notes = document.getElementById("caseNotes").value.trim();
 
-  if (!locationId || !plate || !dateVal || !timeVal) {
-    errorEl.textContent = "Bitte alle Pflichtfelder ausfüllen.";
+  if (!locationId || !ort || !buchst || !nr || !dateVal || !timeVal) {
+    errorEl.textContent = "Bitte alle Pflichtfelder ausfüllen (Kennzeichen vollständig, Standort, Datum & Uhrzeit).";
     errorEl.classList.remove("hidden");
     errorEl.scrollIntoView({ behavior: "smooth", block: "center" });
     return;

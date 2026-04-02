@@ -1,4 +1,4 @@
-const CACHE_NAME = "kr-control-v5";
+const CACHE_NAME = "kr-control-v6";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
