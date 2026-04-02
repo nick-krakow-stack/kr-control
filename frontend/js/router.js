@@ -5,6 +5,8 @@ import { renderCases, initCases } from "./views/cases.js";
 import { renderCaseNew, initCaseNew } from "./views/case-new.js";
 import { renderCaseDetail, initCaseDetail } from "./views/case-detail.js";
 import { renderPasswordSetup, initPasswordSetup } from "./views/password-setup.js";
+import { renderPasswordForgot, initPasswordForgot } from "./views/password-forgot.js";
+import { renderPasswordReset, initPasswordReset } from "./views/password-reset.js";
 import { renderAdminUsers, initAdminUsers } from "./views/admin-users.js";
 import { renderSelfControlReport, initSelfControlReport } from "./views/self-control-report.js";
 import { renderProfile, initProfile } from "./views/profile.js";
@@ -19,6 +21,12 @@ function getSetupToken(hash) {
   return match ? match[1] : null;
 }
 
+// Passwort-Reset-Token aus Hash extrahieren: #/password-reset/TOKEN
+function getResetToken(hash) {
+  const match = hash.match(/^#\/password-reset\/(.+)$/);
+  return match ? match[1] : null;
+}
+
 // Case-ID aus Hash extrahieren: #/cases/123
 function getCaseDetailId(hash) {
   const match = hash.match(/^#\/cases\/(\d+)$/);
@@ -27,6 +35,7 @@ function getCaseDetailId(hash) {
 
 const routes = {
   "#/login": { render: renderLogin, init: initLogin, public: true },
+  "#/forgot-password": { render: renderPasswordForgot, init: initPasswordForgot, public: true },
   "#/dashboard": { render: () => renderLayout(renderDashboard), init: initDashboard },
   "#/locations": { render: () => renderLayout(renderLocations), init: initLocations },
   "#/cases": { render: () => renderLayout(renderCases), init: initCases },
@@ -48,8 +57,17 @@ export async function navigate() {
     return;
   }
 
+  // Passwort-Reset (öffentlich, kein Login nötig)
+  const resetToken = getResetToken(hash);
+  if (resetToken) {
+    app.innerHTML = await renderPasswordReset(resetToken);
+    await initPasswordReset(resetToken);
+    return;
+  }
+
   // Auth-Check
-  if (!isLoggedIn() && hash !== "#/login") {
+  const routeForAuth = routes[hash];
+  if (!isLoggedIn() && !routeForAuth?.public) {
     window.location.hash = "#/login";
     return;
   }

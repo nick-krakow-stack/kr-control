@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { Env, User } from "../types";
-import { hashPassword, verifyPassword, createAccessToken } from "../auth";
+import { hashPassword, verifyPassword, createAccessToken, verifyToken } from "../auth";
 import { authMiddleware } from "../middleware";
-import { sendPasswordChangedEmail } from "../email";
+import { sendPasswordChangedEmail, sendPasswordResetEmail } from "../email";
+import { SignJWT } from "jose";
 
 const auth = new Hono<{ Bindings: Env; Variables: { user: User } }>();
 
@@ -90,6 +91,78 @@ auth.post("/change-password", authMiddleware, async (c) => {
   }
 
   const hashed = await hashPassword(new_password);
+  await c.env.DB.prepare(
+    "UPDATE users SET hashed_password = ? WHERE id = ?"
+  ).bind(hashed, user.id).run();
+
+  c.executionCtx.waitUntil(
+    sendPasswordChangedEmail(c.env.RESEND_API_KEY, c.env.SMTP_FROM, c.env.SMTP_FROM_NAME, user.email, user.username)
+  );
+
+  return c.json({ ok: true });
+});
+
+auth.post("/forgot-password", async (c) => {
+  const { email } = await c.req.json();
+  // Immer 200 zurückgeben – User-Enumeration verhindern
+  if (!email) return c.json({ ok: true });
+
+  const user = await c.env.DB.prepare(
+    "SELECT * FROM users WHERE email = ? AND is_active = 1"
+  ).bind(email).first<User>();
+
+  if (user) {
+    const secret = new TextEncoder().encode(c.env.SECRET_KEY);
+    const resetToken = await new SignJWT({
+      sub: String(user.id),
+      purpose: "reset",
+      pw: user.hashed_password?.slice(0, 8) ?? "",
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setExpirationTime("1h")
+      .sign(secret);
+
+    c.executionCtx.waitUntil(
+      sendPasswordResetEmail(
+        c.env.RESEND_API_KEY, c.env.SMTP_FROM, c.env.SMTP_FROM_NAME,
+        c.env.FRONTEND_URL, user.email, user.username, resetToken
+      )
+    );
+  }
+
+  return c.json({ ok: true });
+});
+
+auth.post("/reset-password", async (c) => {
+  const { token, password } = await c.req.json();
+  if (!token || !password) {
+    return c.json({ detail: "Token und Passwort erforderlich" }, 400);
+  }
+  if (password.length < 8) {
+    return c.json({ detail: "Passwort muss mindestens 8 Zeichen haben" }, 400);
+  }
+
+  const payload = await verifyToken(token, c.env.SECRET_KEY);
+  if (!payload || (payload as { purpose?: string }).purpose !== "reset") {
+    return c.json({ detail: "Token ungültig oder abgelaufen" }, 400);
+  }
+
+  const userId = Number(payload.sub);
+  const user = await c.env.DB.prepare(
+    "SELECT * FROM users WHERE id = ? AND is_active = 1"
+  ).bind(userId).first<User>();
+
+  if (!user) {
+    return c.json({ detail: "Benutzer nicht gefunden" }, 400);
+  }
+
+  // Prüfen ob Token noch gültig (Passwort wurde zwischenzeitlich nicht geändert)
+  const payloadPw = (payload as { pw?: string }).pw ?? "";
+  if ((user.hashed_password?.slice(0, 8) ?? "") !== payloadPw) {
+    return c.json({ detail: "Token bereits verwendet oder abgelaufen" }, 400);
+  }
+
+  const hashed = await hashPassword(password);
   await c.env.DB.prepare(
     "UPDATE users SET hashed_password = ? WHERE id = ?"
   ).bind(hashed, user.id).run();

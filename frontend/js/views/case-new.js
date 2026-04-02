@@ -3,6 +3,7 @@ import { getUser } from "../config.js";
 import { openTicket } from "../ticket.js";
 
 let selectedFiles = [];
+let toastTimeout = null;
 
 export async function renderCaseNew() {
   const locations = await api.getLocations();
@@ -242,11 +243,22 @@ export async function renderCaseNew() {
                 <p class="text-sm font-medium text-slate-700">Fotos auswählen oder ablegen</p>
                 <p class="text-xs text-slate-400 mt-0.5">JPEG · PNG · HEIC · Max. 20 MB</p>
               </div>
-              <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100">
-                Durchsuchen
-              </span>
+              <div class="flex items-center gap-2">
+                <span id="btnBrowse" class="text-xs font-semibold text-blue-600 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors">
+                  Durchsuchen
+                </span>
+                <span id="btnCamera" class="text-xs font-semibold text-slate-600 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  Kamera
+                </span>
+              </div>
             </div>
             <input id="imageInput" type="file" accept="image/*" multiple class="hidden"/>
+            <input id="cameraInput" type="file" accept="image/*" capture="environment" class="hidden"/>
           </div>
 
           <div id="imagePreview" class="grid grid-cols-3 gap-2 mt-3 empty:hidden"></div>
@@ -266,6 +278,12 @@ export async function renderCaseNew() {
           </div>
           <textarea id="caseNotes" class="input resize-none" rows="3"
             placeholder="z.B. Fahrzeug stand bereits beim letzten Kontrollgang dort..."></textarea>
+        </div>
+
+        <!-- Success Toast -->
+        <div id="successToast" class="hidden bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-xl flex items-center justify-between">
+          <span class="font-medium">Fall erfasst!</span>
+          <a id="successToastLink" href="#" class="text-green-700 font-semibold underline hover:text-green-900 transition-colors">Anzeigen →</a>
         </div>
 
         <!-- Error -->
@@ -367,9 +385,25 @@ export function initCaseNew() {
   });
 
   // ── Foto-Upload ───────────────────────────────────────────────
-  const dropZone = document.getElementById("dropZone");
+  const dropZone   = document.getElementById("dropZone");
   const imageInput = document.getElementById("imageInput");
+  const cameraInput = document.getElementById("cameraInput");
+  const btnBrowse  = document.getElementById("btnBrowse");
+  const btnCamera  = document.getElementById("btnCamera");
 
+  // "Durchsuchen"-Button öffnet Galerie-Auswahl (kein capture)
+  btnBrowse.addEventListener("click", (e) => {
+    e.stopPropagation();
+    imageInput.click();
+  });
+
+  // "Kamera"-Button öffnet direkt Rückkamera
+  btnCamera.addEventListener("click", (e) => {
+    e.stopPropagation();
+    cameraInput.click();
+  });
+
+  // Klick auf Drop-Zone (außerhalb der Buttons) öffnet Galerie
   dropZone.addEventListener("click", () => imageInput.click());
 
   dropZone.addEventListener("dragover", (e) => {
@@ -387,6 +421,10 @@ export function initCaseNew() {
   imageInput.addEventListener("change", () => {
     addFiles(Array.from(imageInput.files));
     imageInput.value = "";
+  });
+  cameraInput.addEventListener("change", () => {
+    addFiles(Array.from(cameraInput.files));
+    cameraInput.value = "";
   });
 
   // ── Submit ────────────────────────────────────────────────────
@@ -436,6 +474,80 @@ function renderPreview() {
   window._removeFile = (i) => removeFile(i);
 }
 
+function resetForm(createdId) {
+  // Kennzeichen leeren
+  document.getElementById("plateOrt").value = "";
+  document.getElementById("plateBuchst").value = "";
+  document.getElementById("plateNr").value = "";
+
+  // Standort: Karten-Stil zurücksetzen + hidden input leeren
+  const locationCards = document.getElementById("locationCards");
+  if (locationCards) {
+    locationCards.querySelectorAll(".loc-card").forEach((c) => {
+      c.classList.remove("border-blue-500", "bg-blue-50");
+      c.classList.add("border-slate-200");
+      c.querySelector(".loc-icon").classList.remove("bg-blue-100");
+      c.querySelector(".loc-icon").classList.add("bg-slate-100");
+      c.querySelector(".loc-pin").classList.remove("text-blue-600");
+      c.querySelector(".loc-pin").classList.add("text-slate-400");
+      c.querySelector(".loc-label").classList.remove("text-blue-700");
+      c.querySelector(".loc-label").classList.add("text-slate-700");
+    });
+  }
+  const locInput = document.getElementById("caseLocation");
+  if (locInput) locInput.value = "";
+
+  // Datum & Uhrzeit: aktuelle Zeit neu setzen
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  document.getElementById("caseDate").value = local.toISOString().slice(0, 10);
+  document.getElementById("caseTime").value = local.toISOString().slice(11, 16);
+
+  // Falltyp: erste verfügbare Option auswählen, Karten-Highlight zurücksetzen
+  const allTypeCards = document.querySelectorAll(".case-type-card");
+  allTypeCards.forEach((card) => {
+    card.classList.remove("border-blue-500", "bg-blue-50");
+    card.classList.add("border-slate-200");
+  });
+  const firstRadio = document.querySelector('input[name="caseType"]');
+  if (firstRadio) {
+    firstRadio.checked = true;
+    firstRadio.closest(".case-type-card").classList.add("border-blue-500", "bg-blue-50");
+    firstRadio.closest(".case-type-card").classList.remove("border-slate-200");
+  }
+
+  // Notizen leeren
+  document.getElementById("caseNotes").value = "";
+
+  // Fotos zurücksetzen
+  selectedFiles = [];
+  renderPreview();
+
+  // Submit-Button zurücksetzen
+  const btn = document.getElementById("btnSubmitCase");
+  btn.disabled = false;
+  btn.innerHTML = `
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    Fall melden`;
+
+  // Toast anzeigen
+  const toast = document.getElementById("successToast");
+  const toastLink = document.getElementById("successToastLink");
+  toastLink.href = `#/cases/${createdId}`;
+  toast.classList.remove("hidden");
+  toast.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  // Toast nach 4 Sekunden ausblenden (clearTimeout bei Schnellerfassung)
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    toast.classList.add("hidden");
+    toastTimeout = null;
+  }, 4000);
+}
+
 async function submitCase(e) {
   e.preventDefault();
   const errorEl = document.getElementById("caseFormError");
@@ -480,7 +592,7 @@ async function submitCase(e) {
 
     const created = await api.createCase(formData);
     openTicket(created);
-    window.location.hash = `#/cases/${created.id}`;
+    resetForm(created.id);
   } catch (err) {
     errorEl.textContent = "Fehler: " + err.message;
     errorEl.classList.remove("hidden");

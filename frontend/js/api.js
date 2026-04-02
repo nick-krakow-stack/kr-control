@@ -64,6 +64,8 @@ export const api = {
   },
 
   changePassword: (data) => request("POST", "/api/auth/change-password", data),
+  forgotPassword: (email) => request("POST", "/api/auth/forgot-password", { email }),
+  resetPassword: (token, password) => request("POST", "/api/auth/reset-password", { token, password }),
 
   // Stats
   getStats: () => request("GET", "/api/stats"),

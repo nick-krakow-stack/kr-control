@@ -18,6 +18,8 @@ export async function renderDashboard() {
         `).join("")}
       </div>
 
+      <div id="recallSection" class="mb-6"></div>
+
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2">
           <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -57,14 +59,77 @@ export async function renderDashboard() {
 
 export async function initDashboard() {
   try {
-    const stats = await api.getStats();
+    const [stats, pendingCases] = await Promise.all([
+      api.getStats(),
+      api.getCases({ status: "pending" }).catch(() => []),
+    ]);
+
     renderStatCards(stats);
     renderRecentCases(stats.recent_cases);
     renderStatusDist(stats.status_distribution, stats.total_cases);
     renderTopLocations(stats.top_locations);
+
+    const recallable = (Array.isArray(pendingCases) ? pendingCases : []).filter(
+      (c) => c.recall_deadline && new Date(c.recall_deadline) > new Date()
+    );
+    renderRecallSection(recallable);
   } catch (err) {
     console.error("Dashboard-Fehler:", err);
   }
+}
+
+function formatTimeLeft(deadline) {
+  const msLeft = new Date(deadline) - new Date();
+  if (msLeft <= 0) return null;
+  const totalMinutes = Math.floor(msLeft / 60000);
+  if (totalMinutes < 60) {
+    return { text: `${totalMinutes} min`, urgent: totalMinutes < 15 };
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const text = minutes > 0 ? `${hours}h ${minutes}min` : `${hours}h`;
+  return { text, urgent: false };
+}
+
+function renderRecallSection(cases) {
+  const el = document.getElementById("recallSection");
+  if (!el) return;
+
+  if (!cases.length) {
+    el.innerHTML = "";
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden">
+      <div class="px-6 py-4 border-b border-amber-200 flex items-center gap-3">
+        <span class="text-lg">⏳</span>
+        <h2 class="font-semibold text-amber-900 flex-1">Aktive Widerrufsfenster</h2>
+        <span class="bg-amber-200 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full">${cases.length}</span>
+      </div>
+      <p class="px-6 py-2 text-xs text-amber-700 border-b border-amber-100">Diese Fälle können noch widerrufen werden</p>
+      <div class="divide-y divide-amber-100">
+        ${cases.map((c) => {
+          const timeLeft = formatTimeLeft(c.recall_deadline);
+          if (!timeLeft) return "";
+          const locationName = c.location?.name ?? "–";
+          const timeColor = timeLeft.urgent ? "text-red-600 font-semibold" : "text-amber-700";
+          return `
+            <a href="#/cases/${c.id}" class="flex items-center px-6 py-3.5 hover:bg-amber-100 transition-colors cursor-pointer group">
+              <div class="flex-1 min-w-0 flex items-center gap-4">
+                <span class="font-mono font-semibold text-slate-800 text-sm flex-shrink-0">${c.license_plate}</span>
+                <span class="text-sm text-slate-600 truncate flex-1">${locationName}</span>
+                <span class="text-sm ${timeColor} flex-shrink-0">noch ${timeLeft.text}</span>
+              </div>
+              <svg class="w-4 h-4 text-amber-400 group-hover:text-amber-600 transition-colors flex-shrink-0 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </a>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function renderStatCards(stats) {

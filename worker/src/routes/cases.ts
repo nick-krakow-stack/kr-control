@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { Env, User, Case, CaseImage, SELF_CONTROL_ROLES } from "../types";
 import { authMiddleware, getAccessibleLocationIds } from "../middleware";
+import { sendRecallConfirmationEmail } from "../email";
 
 const cases = new Hono<{ Bindings: Env; Variables: { user: User } }>();
 
@@ -186,9 +187,35 @@ cases.post("/:id/recall", async (c) => {
     return c.json({ detail: "Widerruf-Frist abgelaufen" }, 400);
   }
 
+  const recalledAt = new Date().toISOString();
   await c.env.DB.prepare(
     "UPDATE cases SET status = 'recalled', recalled_at = ? WHERE id = ?"
-  ).bind(new Date().toISOString(), id).run();
+  ).bind(recalledAt, id).run();
+
+  // Bestätigungs-E-Mail an den meldenden User senden
+  c.executionCtx.waitUntil((async () => {
+    try {
+      const reporter = await c.env.DB.prepare(
+        "SELECT email, username FROM users WHERE id = ?"
+      ).bind(ca.reported_by_user_id).first<{ email: string; username: string }>();
+      const location = await c.env.DB.prepare(
+        "SELECT name FROM locations WHERE id = ?"
+      ).bind(ca.location_id).first<{ name: string }>();
+      if (reporter?.email) {
+        const recalledAtFormatted = new Date(recalledAt).toLocaleString("de-DE", {
+          day: "2-digit", month: "2-digit", year: "numeric",
+          hour: "2-digit", minute: "2-digit",
+        });
+        await sendRecallConfirmationEmail(
+          c.env.RESEND_API_KEY, c.env.SMTP_FROM, c.env.SMTP_FROM_NAME,
+          reporter.email, reporter.username,
+          ca.license_plate, location?.name ?? "Unbekannt", recalledAtFormatted
+        );
+      }
+    } catch {
+      // E-Mail-Fehler soll den Widerruf nicht blockieren
+    }
+  })());
 
   return c.json({ ok: true });
 });

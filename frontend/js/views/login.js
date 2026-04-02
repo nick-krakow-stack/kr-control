@@ -38,6 +38,11 @@ export function renderLogin() {
               Anmelden
             </button>
           </form>
+          <div class="text-center mt-3">
+            <a href="#/forgot-password" class="text-sm text-slate-400 hover:text-blue-600 transition-colors">
+              Passwort vergessen?
+            </a>
+          </div>
         </div>
 
         <p class="text-center text-slate-500 text-xs mt-6">KR Control &copy; ${new Date().getFullYear()}</p>
