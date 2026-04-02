@@ -1,4 +1,5 @@
 import { api } from "../api.js";
+import { getUser } from "../config.js";
 
 let selectedFiles = [];
 
@@ -11,6 +12,9 @@ export async function renderCaseNew() {
   const timeStr = local.toISOString().slice(11, 16);
 
   const useCards = locations.length > 0 && locations.length <= 6;
+  const role = getUser()?.role || "mitarbeiter";
+  const isSelfControlUser = role === "self_control_business" || role === "self_control_private";
+  const isAdminUser = role === "admin";
 
   const locationContent = useCards
     ? `<div class="grid grid-cols-2 gap-2" id="locationCards">
@@ -63,54 +67,56 @@ export async function renderCaseNew() {
             <span class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Kennzeichen</span>
           </div>
 
-          <!-- Plate widget: 3 fields -->
-          <div class="flex items-stretch rounded-xl overflow-hidden shadow-lg mx-auto"
-               style="border: 3px solid #1a1a1a; max-width: 100%;">
-            <!-- EU strip: fixed width, no shrink -->
-            <div class="flex flex-col items-center justify-center gap-1 select-none"
-                 style="background: #003399; width: 48px; flex-shrink: 0; padding: 10px 0;">
-              <svg viewBox="0 0 20 20" width="20" height="20">
-                <circle cx="10"    cy="3"     r="0.9" fill="#FFCC00"/>
-                <circle cx="13.5"  cy="3.94"  r="0.9" fill="#FFCC00"/>
-                <circle cx="16.06" cy="6.5"   r="0.9" fill="#FFCC00"/>
-                <circle cx="17"    cy="10"    r="0.9" fill="#FFCC00"/>
-                <circle cx="16.06" cy="13.5"  r="0.9" fill="#FFCC00"/>
-                <circle cx="13.5"  cy="16.06" r="0.9" fill="#FFCC00"/>
-                <circle cx="10"    cy="17"    r="0.9" fill="#FFCC00"/>
-                <circle cx="6.5"   cy="16.06" r="0.9" fill="#FFCC00"/>
-                <circle cx="3.94"  cy="13.5"  r="0.9" fill="#FFCC00"/>
-                <circle cx="3"     cy="10"    r="0.9" fill="#FFCC00"/>
-                <circle cx="3.94"  cy="6.5"   r="0.9" fill="#FFCC00"/>
-                <circle cx="6.5"   cy="3.94"  r="0.9" fill="#FFCC00"/>
-              </svg>
-              <span style="color: white; font-size: 10px; font-weight: 900; letter-spacing: 1px; line-height: 1;">D</span>
-            </div>
-            <!-- Divider -->
-            <div style="width: 3px; background: #1a1a1a; flex-shrink: 0;"></div>
-            <!-- Three input fields -->
-            <div class="flex items-center flex-1 bg-white" style="padding: 0 8px; min-width: 0;">
-              <input id="plateOrt" type="text" maxlength="3" autocomplete="off" inputmode="text"
-                placeholder="HL"
-                style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
-                       letter-spacing: 0.05em; width: 3ch; border: none; outline: none; text-align: center;
-                       text-transform: uppercase; background: transparent; color: #1a1a1a;
-                       padding: 12px 0; flex-shrink: 0;"/>
-              <span style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
-                           color: #1a1a1a; flex-shrink: 0; padding: 0 3px; user-select: none; line-height: 1;">·</span>
-              <input id="plateBuchst" type="text" maxlength="2" autocomplete="off" inputmode="text"
-                placeholder="VS"
-                style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
-                       letter-spacing: 0.05em; width: 2.4ch; border: none; outline: none; text-align: center;
-                       text-transform: uppercase; background: transparent; color: #1a1a1a;
-                       padding: 12px 0; flex-shrink: 0;"/>
-              <span style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
-                           color: transparent; flex-shrink: 0; padding: 0 2px; user-select: none;">·</span>
-              <input id="plateNr" type="text" maxlength="5" autocomplete="off" inputmode="text"
-                placeholder="1820"
-                style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
-                       letter-spacing: 0.05em; flex: 1; min-width: 3ch; border: none; outline: none;
-                       text-align: center; text-transform: uppercase; background: transparent;
-                       color: #1a1a1a; padding: 12px 0;"/>
+          <!-- Plate widget: 3 fields, shrinks to content -->
+          <div class="text-center">
+            <div class="inline-flex items-stretch rounded-xl overflow-hidden shadow-lg"
+                 style="border: 3px solid #1a1a1a;">
+              <!-- EU strip: fixed, no shrink -->
+              <div class="flex flex-col items-center justify-center gap-1 select-none"
+                   style="background: #003399; width: 44px; flex-shrink: 0; padding: 10px 0;">
+                <svg viewBox="0 0 20 20" width="18" height="18">
+                  <circle cx="10"    cy="3"     r="0.9" fill="#FFCC00"/>
+                  <circle cx="13.5"  cy="3.94"  r="0.9" fill="#FFCC00"/>
+                  <circle cx="16.06" cy="6.5"   r="0.9" fill="#FFCC00"/>
+                  <circle cx="17"    cy="10"    r="0.9" fill="#FFCC00"/>
+                  <circle cx="16.06" cy="13.5"  r="0.9" fill="#FFCC00"/>
+                  <circle cx="13.5"  cy="16.06" r="0.9" fill="#FFCC00"/>
+                  <circle cx="10"    cy="17"    r="0.9" fill="#FFCC00"/>
+                  <circle cx="6.5"   cy="16.06" r="0.9" fill="#FFCC00"/>
+                  <circle cx="3.94"  cy="13.5"  r="0.9" fill="#FFCC00"/>
+                  <circle cx="3"     cy="10"    r="0.9" fill="#FFCC00"/>
+                  <circle cx="3.94"  cy="6.5"   r="0.9" fill="#FFCC00"/>
+                  <circle cx="6.5"   cy="3.94"  r="0.9" fill="#FFCC00"/>
+                </svg>
+                <span style="color: white; font-size: 10px; font-weight: 900; letter-spacing: 1px; line-height: 1;">D</span>
+              </div>
+              <!-- Divider -->
+              <div style="width: 3px; background: #1a1a1a; flex-shrink: 0;"></div>
+              <!-- Three input fields -->
+              <div class="flex items-center bg-white" style="padding: 0 10px; gap: 0;">
+                <input id="plateOrt" type="text" maxlength="3" autocomplete="off" inputmode="text"
+                  placeholder="HL"
+                  style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
+                         letter-spacing: 0.05em; width: 3.2ch; border: none; outline: none; text-align: center;
+                         text-transform: uppercase; background: transparent; color: #1a1a1a;
+                         padding: 12px 0; flex-shrink: 0;"/>
+                <span style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
+                             color: #1a1a1a; flex-shrink: 0; padding: 0 2px; user-select: none; line-height: 1;">·</span>
+                <input id="plateBuchst" type="text" maxlength="2" autocomplete="off" inputmode="text"
+                  placeholder="VS"
+                  style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
+                         letter-spacing: 0.05em; width: 2.4ch; border: none; outline: none; text-align: center;
+                         text-transform: uppercase; background: transparent; color: #1a1a1a;
+                         padding: 12px 0; flex-shrink: 0;"/>
+                <span style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem;
+                             flex-shrink: 0; padding: 0 4px; user-select: none; opacity: 0;">·</span>
+                <input id="plateNr" type="text" maxlength="5" autocomplete="off" inputmode="text"
+                  placeholder="1820"
+                  style="font-family: 'Arial Black', Impact, sans-serif; font-size: 1.75rem; font-weight: 900;
+                         letter-spacing: 0.05em; width: 4.8ch; border: none; outline: none;
+                         text-align: center; text-transform: uppercase; background: transparent;
+                         color: #1a1a1a; padding: 12px 0; flex-shrink: 0;"/>
+              </div>
             </div>
           </div>
           <p class="text-center text-xs text-slate-400 mt-2.5">Ortskennzeichen · Buchstaben · Nummer</p>
@@ -165,7 +171,36 @@ export async function renderCaseNew() {
           </div>
         </div>
 
-        <!-- ④ Falltyp -->
+        <!-- ④ Falltyp (rollenabhängig) -->
+        ${isSelfControlUser ? `
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+            </div>
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Self-Control Art</span>
+          </div>
+          <div class="space-y-2">
+            <label class="case-type-card flex items-center gap-3 p-3.5 border-2 border-blue-500 bg-blue-50 rounded-xl cursor-pointer transition-all">
+              <input type="radio" name="caseType" value="self_control_ticket" checked class="w-4 h-4 accent-blue-600 flex-shrink-0"/>
+              <div>
+                <div class="text-sm font-semibold text-slate-800">Self-Control + Ticket</div>
+                <div class="text-xs text-slate-500">Eigenmeldung mit Ticket</div>
+              </div>
+            </label>
+            <label class="case-type-card flex items-center gap-3 p-3.5 border-2 border-slate-200 rounded-xl cursor-pointer transition-all hover:border-slate-300">
+              <input type="radio" name="caseType" value="self_control_direct" class="w-4 h-4 accent-blue-600 flex-shrink-0"/>
+              <div>
+                <div class="text-sm font-semibold text-slate-800">Self-Control direkt</div>
+                <div class="text-xs text-slate-500">Eigenmeldung ohne Ticket</div>
+              </div>
+            </label>
+          </div>
+        </div>
+        ` : isAdminUser ? `
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <div class="flex items-center gap-2 mb-4">
             <div class="w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -200,6 +235,7 @@ export async function renderCaseNew() {
             </label>
           </div>
         </div>
+        ` : `<input type="hidden" name="caseType" value="standard"/>`}
 
         <!-- ⑤ Fotos -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
