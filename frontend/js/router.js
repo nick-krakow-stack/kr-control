@@ -31,7 +31,7 @@ const routes = {
   "#/locations": { render: () => renderLayout(renderLocations), init: initLocations },
   "#/cases": { render: () => renderLayout(renderCases), init: initCases },
   "#/cases/new": { render: () => renderLayout(renderCaseNew), init: initCaseNew },
-  "#/report": { render: () => renderLayout(renderSelfControlReport), init: initSelfControlReport },
+  "#/report": { render: () => renderLayout(renderCaseNew), init: initCaseNew },
   "#/admin/users": { render: () => renderLayout(renderAdminUsers), init: initAdminUsers },
   "#/profile": { render: () => renderLayout(renderProfile), init: initProfile },
 };
@@ -73,13 +73,7 @@ export async function navigate() {
     return;
   }
 
-  // Self-Control darf keinen Mitarbeiter-Flow nutzen
-  if (hash === "#/cases/new" && isSelfControl()) {
-    window.location.hash = "#/report";
-    return;
-  }
-
-  const route = routes[hash];
+const route = routes[hash];
   if (!route) {
     window.location.hash = isLoggedIn() ? "#/dashboard" : "#/login";
     return;
