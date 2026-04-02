@@ -15,6 +15,7 @@ export async function renderCaseNew() {
   const role = getUser()?.role || "mitarbeiter";
   const isSelfControlUser = role === "self_control_business" || role === "self_control_private";
   const isAdminUser = role === "admin";
+  const isMitarbeiter = role === "mitarbeiter";
 
   const locationContent = useCards
     ? `<div class="grid grid-cols-2 gap-2" id="locationCards">
@@ -171,36 +172,7 @@ export async function renderCaseNew() {
           </div>
         </div>
 
-        <!-- ④ Falltyp (rollenabhängig) -->
-        ${isSelfControlUser ? `
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-          <div class="flex items-center gap-2 mb-4">
-            <div class="w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-              </svg>
-            </div>
-            <span class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Self-Control Art</span>
-          </div>
-          <div class="space-y-2">
-            <label class="case-type-card flex items-center gap-3 p-3.5 border-2 border-blue-500 bg-blue-50 rounded-xl cursor-pointer transition-all">
-              <input type="radio" name="caseType" value="self_control_ticket" checked class="w-4 h-4 accent-blue-600 flex-shrink-0"/>
-              <div>
-                <div class="text-sm font-semibold text-slate-800">Self-Control + Ticket</div>
-                <div class="text-xs text-slate-500">Eigenmeldung mit Ticket</div>
-              </div>
-            </label>
-            <label class="case-type-card flex items-center gap-3 p-3.5 border-2 border-slate-200 rounded-xl cursor-pointer transition-all hover:border-slate-300">
-              <input type="radio" name="caseType" value="self_control_direct" class="w-4 h-4 accent-blue-600 flex-shrink-0"/>
-              <div>
-                <div class="text-sm font-semibold text-slate-800">Self-Control direkt</div>
-                <div class="text-xs text-slate-500">Eigenmeldung ohne Ticket</div>
-              </div>
-            </label>
-          </div>
-        </div>
-        ` : isAdminUser ? `
+        <!-- ④ Falltyp -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <div class="flex items-center gap-2 mb-4">
             <div class="w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -212,15 +184,18 @@ export async function renderCaseNew() {
             <span class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Falltyp</span>
           </div>
           <div class="space-y-2">
-            <label class="case-type-card flex items-center gap-3 p-3.5 border-2 border-blue-500 bg-blue-50 rounded-xl cursor-pointer transition-all">
-              <input type="radio" name="caseType" value="standard" checked class="w-4 h-4 accent-blue-600 flex-shrink-0"/>
+            ${!isSelfControlUser ? `
+            <label class="case-type-card flex items-center gap-3 p-3.5 border-2 ${!isSelfControlUser ? "border-blue-500 bg-blue-50" : "border-slate-200"} rounded-xl cursor-pointer transition-all">
+              <input type="radio" name="caseType" value="standard" ${!isSelfControlUser ? "checked" : ""} class="w-4 h-4 accent-blue-600 flex-shrink-0"/>
               <div>
                 <div class="text-sm font-semibold text-slate-800">Standard</div>
                 <div class="text-xs text-slate-500">KR-Kontrolle</div>
               </div>
             </label>
-            <label class="case-type-card flex items-center gap-3 p-3.5 border-2 border-slate-200 rounded-xl cursor-pointer transition-all hover:border-slate-300">
-              <input type="radio" name="caseType" value="self_control_ticket" class="w-4 h-4 accent-blue-600 flex-shrink-0"/>
+            ` : ""}
+            ${!isMitarbeiter ? `
+            <label class="case-type-card flex items-center gap-3 p-3.5 border-2 ${isSelfControlUser ? "border-blue-500 bg-blue-50" : "border-slate-200"} rounded-xl cursor-pointer transition-all hover:border-slate-300">
+              <input type="radio" name="caseType" value="self_control_ticket" ${isSelfControlUser ? "checked" : ""} class="w-4 h-4 accent-blue-600 flex-shrink-0"/>
               <div>
                 <div class="text-sm font-semibold text-slate-800">Self-Control + Ticket</div>
                 <div class="text-xs text-slate-500">Eigenmeldung mit Ticket</div>
@@ -233,9 +208,9 @@ export async function renderCaseNew() {
                 <div class="text-xs text-slate-500">Eigenmeldung ohne Ticket</div>
               </div>
             </label>
+            ` : ""}
           </div>
         </div>
-        ` : `<input type="hidden" name="caseType" value="standard"/>`}
 
         <!-- ⑤ Fotos -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
