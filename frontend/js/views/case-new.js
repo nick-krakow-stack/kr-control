@@ -1,5 +1,6 @@
 import { api } from "../api.js";
 import { getUser } from "../config.js";
+import { openTicket } from "../ticket.js";
 
 let selectedFiles = [];
 
@@ -478,6 +479,7 @@ async function submitCase(e) {
     }
 
     const created = await api.createCase(formData);
+    openTicket(created);
     window.location.hash = `#/cases/${created.id}`;
   } catch (err) {
     errorEl.textContent = "Fehler: " + err.message;

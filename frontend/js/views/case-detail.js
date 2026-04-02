@@ -1,5 +1,6 @@
 import { api } from "../api.js";
 import { STATUS_LABELS, STATUS_COLORS, CASE_TYPE_LABELS, isSelfControl, isStaff } from "../config.js";
+import { openTicket } from "../ticket.js";
 
 export async function renderCaseDetail(id) {
   return `
@@ -77,6 +78,14 @@ function renderDetail(c, location) {
         </div>
 
         <div class="flex gap-2 flex-wrap">
+          <button id="btnPrintTicket"
+            class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+            Ticket drucken
+          </button>
           ${canRecall && selfControl ? `
             <button id="btnRecall"
               class="text-sm bg-amber-100 hover:bg-amber-200 text-amber-800 font-medium px-4 py-1.5 rounded-lg transition-colors">
@@ -192,6 +201,9 @@ function renderDetail(c, location) {
       `}
     </div>
   `;
+
+  // Ticket drucken
+  document.getElementById("btnPrintTicket").addEventListener("click", () => openTicket(c));
 
   // Widerruf-Button
   const recallBtn = document.getElementById("btnRecall");
