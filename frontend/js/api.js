@@ -66,30 +66,30 @@ export const api = {
   changePassword: (data) => request("POST", "/api/auth/change-password", data),
 
   // Stats
-  getStats: () => request("GET", "/api/stats/"),
+  getStats: () => request("GET", "/api/stats"),
 
   // Locations
-  getLocations: () => request("GET", "/api/locations/"),
+  getLocations: () => request("GET", "/api/locations"),
   getLocation: (id) => request("GET", `/api/locations/${id}`),
-  createLocation: (data) => request("POST", "/api/locations/", data),
+  createLocation: (data) => request("POST", "/api/locations", data),
   updateLocation: (id, data) => request("PUT", `/api/locations/${id}`, data),
   deleteLocation: (id) => request("DELETE", `/api/locations/${id}`),
 
   // Cases
   getCases: (params = {}) => {
     const q = new URLSearchParams(params).toString();
-    return request("GET", `/api/cases/${q ? "?" + q : ""}`);
+    return request("GET", `/api/cases${q ? "?" + q : ""}`);
   },
   getCase: (id) => request("GET", `/api/cases/${id}`),
-  createCase: (formData) => request("POST", "/api/cases/", formData, true),
+  createCase: (formData) => request("POST", "/api/cases", formData, true),
   updateStatus: (id, data) => request("PATCH", `/api/cases/${id}/status`, data),
   recallCase: (id) => request("POST", `/api/cases/${id}/recall`),
   deleteCase: (id) => request("DELETE", `/api/cases/${id}`),
 
   // Users (Admin)
-  getUsers: () => request("GET", "/api/users/"),
+  getUsers: () => request("GET", "/api/users"),
   getUser: (id) => request("GET", `/api/users/${id}`),
-  createUser: (data) => request("POST", "/api/users/", data),
+  createUser: (data) => request("POST", "/api/users", data),
   updateUser: (id, data) => request("PUT", `/api/users/${id}`, data),
   deleteUser: (id) => request("DELETE", `/api/users/${id}`),
   assignLocations: (id, location_ids) => request("PUT", `/api/users/${id}/locations`, { location_ids }),
