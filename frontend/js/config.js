@@ -1,5 +1,5 @@
 // API-Konfiguration
-export const API_BASE = "https://kr-control-production.up.railway.app";
+export const API_BASE = "https://kr-control-api.gndnick.workers.dev";
 
 export const STATUS_LABELS = {
   pending: "Ausstehend",

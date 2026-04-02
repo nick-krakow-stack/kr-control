@@ -1,0 +1,27 @@
+name = "kr-control-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+account_id = "88ec96f4b844479d68df37f96624ba55"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kr-control-db"
+database_id = "b7ac8fc8-fc79-4bec-99d7-cbe842b72f91"
+
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "kr-control-uploads"
+
+[vars]
+FRONTEND_URL = "https://kr-control.pages.dev"
+SMTP_FROM = "noreply@dragoncity.eu"
+SMTP_FROM_NAME = "KR Control"
+FIRST_ADMIN_USERNAME = "admin"
+FIRST_ADMIN_EMAIL = "admin@kr-control.de"
+DEFAULT_RECALL_HOURS = "24"
+ACCESS_TOKEN_EXPIRE_MINUTES = "1440"
+
+[triggers]
+crons = ["* * * * *"]
