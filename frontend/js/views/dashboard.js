@@ -53,6 +53,45 @@ export async function renderDashboard() {
           </div>
         </div>
       </div>
+
+      <!-- Auswertung -->
+      <div class="mt-8">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center gap-3">
+            <h2 class="font-semibold text-slate-800 flex-1">Auswertung</h2>
+            <div class="flex flex-wrap gap-2" id="reportPresets">
+              <button data-preset="today"  class="report-preset-btn text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">Heute</button>
+              <button data-preset="week"   class="report-preset-btn text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">Diese Woche</button>
+              <button data-preset="month"  class="report-preset-btn text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors font-semibold bg-slate-100">Dieser Monat</button>
+              <button data-preset="all"    class="report-preset-btn text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">Alles</button>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="reportFrom" type="date" class="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              <span class="text-slate-400 text-xs">–</span>
+              <input id="reportTo" type="date" class="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+            </div>
+          </div>
+
+          <div id="reportSummary" class="grid grid-cols-3 gap-4 p-4 border-b border-slate-50">
+            <div class="text-center py-2">
+              <div class="text-xs text-slate-400 mb-1">Fälle</div>
+              <div id="rptCases" class="text-2xl font-bold text-slate-800">–</div>
+            </div>
+            <div class="text-center py-2 border-x border-slate-100">
+              <div class="text-xs text-slate-400 mb-1">Ticket-Beträge</div>
+              <div id="rptTicket" class="text-2xl font-bold text-violet-700">–</div>
+            </div>
+            <div class="text-center py-2">
+              <div class="text-xs text-slate-400 mb-1">Brief-Beträge</div>
+              <div id="rptLetter" class="text-2xl font-bold text-slate-600">–</div>
+            </div>
+          </div>
+
+          <div id="reportTable" class="p-4">
+            <div class="text-slate-400 text-sm text-center py-4">Lade Daten...</div>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -73,9 +112,122 @@ export async function initDashboard() {
       (c) => c.recall_deadline && new Date(c.recall_deadline) > new Date()
     );
     renderRecallSection(recallable);
+    initReport();
   } catch (err) {
     console.error("Dashboard-Fehler:", err);
   }
+}
+
+function initReport() {
+  // Default: dieser Monat
+  const today = new Date();
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  const fmtInput = (d) => d.toISOString().slice(0, 10);
+
+  document.getElementById("reportFrom").value = fmtInput(firstOfMonth);
+  document.getElementById("reportTo").value = fmtInput(today);
+
+  const loadReport = async () => {
+    const from = document.getElementById("reportFrom").value;
+    const to = document.getElementById("reportTo").value;
+    if (!from || !to) return;
+    document.getElementById("reportTable").innerHTML = `<div class="text-slate-400 text-sm text-center py-4">Lade...</div>`;
+    try {
+      const data = await api.getReport(from, to);
+      document.getElementById("rptCases").textContent = data.total_cases;
+      document.getElementById("rptTicket").textContent = data.total_amount_ticket.toFixed(0) + "€";
+      document.getElementById("rptLetter").textContent = data.total_amount_letter.toFixed(0) + "€";
+      renderReportTable(data.per_location);
+    } catch (err) {
+      document.getElementById("reportTable").innerHTML = `<div class="text-red-400 text-sm text-center py-4">Fehler: ${err.message}</div>`;
+    }
+  };
+
+  // Preset buttons
+  document.querySelectorAll(".report-preset-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const now = new Date();
+      let from, to = fmtInput(now);
+      const preset = btn.dataset.preset;
+      if (preset === "today") {
+        from = to;
+      } else if (preset === "week") {
+        const d = new Date(now); d.setDate(d.getDate() - 6);
+        from = fmtInput(d);
+      } else if (preset === "month") {
+        from = fmtInput(new Date(now.getFullYear(), now.getMonth(), 1));
+      } else {
+        from = "2020-01-01";
+        to = fmtInput(now);
+      }
+      document.getElementById("reportFrom").value = from;
+      document.getElementById("reportTo").value = to;
+
+      // Highlight active preset
+      document.querySelectorAll(".report-preset-btn").forEach((b) => {
+        b.classList.remove("font-semibold", "bg-slate-100");
+      });
+      btn.classList.add("font-semibold", "bg-slate-100");
+
+      loadReport();
+    });
+  });
+
+  document.getElementById("reportFrom").addEventListener("change", () => {
+    document.querySelectorAll(".report-preset-btn").forEach((b) => b.classList.remove("font-semibold", "bg-slate-100"));
+    loadReport();
+  });
+  document.getElementById("reportTo").addEventListener("change", () => {
+    document.querySelectorAll(".report-preset-btn").forEach((b) => b.classList.remove("font-semibold", "bg-slate-100"));
+    loadReport();
+  });
+
+  loadReport();
+}
+
+function renderReportTable(locations) {
+  const el = document.getElementById("reportTable");
+  if (!locations.length) {
+    el.innerHTML = `<div class="text-slate-400 text-sm text-center py-6">Keine Fälle im gewählten Zeitraum</div>`;
+    return;
+  }
+  const maxCount = locations[0]?.count || 1;
+  el.innerHTML = `
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-slate-400 border-b border-slate-100">
+          <th class="pb-2 font-medium">Standort</th>
+          <th class="pb-2 font-medium text-right w-16">Fälle</th>
+          <th class="pb-2 font-medium text-right w-24">Tickets</th>
+          <th class="pb-2 font-medium text-right w-24">Briefe</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50">
+        ${locations.map((l) => `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="py-2.5 pr-4">
+              <div class="text-slate-800 font-medium truncate max-w-[200px]">${l.name}</div>
+              <div class="w-full bg-slate-100 rounded-full h-1 mt-1">
+                <div class="bg-blue-400 h-1 rounded-full" style="width: ${Math.round((l.count / maxCount) * 100)}%"></div>
+              </div>
+            </td>
+            <td class="py-2.5 text-right font-semibold text-slate-700">${l.count}</td>
+            <td class="py-2.5 text-right text-violet-700 font-medium">${l.amount_ticket.toFixed(0)}€</td>
+            <td class="py-2.5 text-right text-slate-500">${l.amount_letter.toFixed(0)}€</td>
+          </tr>
+        `).join("")}
+      </tbody>
+      <tfoot class="border-t border-slate-200">
+        <tr>
+          <td class="pt-2.5 text-xs text-slate-400 font-medium">Gesamt</td>
+          <td class="pt-2.5 text-right font-bold text-slate-800">${locations.reduce((s, l) => s + l.count, 0)}</td>
+          <td class="pt-2.5 text-right font-bold text-violet-700">${locations.reduce((s, l) => s + l.amount_ticket, 0).toFixed(0)}€</td>
+          <td class="pt-2.5 text-right font-bold text-slate-600">${locations.reduce((s, l) => s + l.amount_letter, 0).toFixed(0)}€</td>
+        </tr>
+      </tfoot>
+    </table>
+  `;
 }
 
 function formatTimeLeft(deadline) {

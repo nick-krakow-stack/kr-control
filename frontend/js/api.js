@@ -69,6 +69,12 @@ export const api = {
 
   // Stats
   getStats: () => request("GET", "/api/stats"),
+  getReport: (from, to) => {
+    const q = new URLSearchParams();
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
+    return request("GET", `/api/stats/report${q.toString() ? "?" + q.toString() : ""}`);
+  },
 
   // Locations
   getLocations: () => request("GET", "/api/locations"),

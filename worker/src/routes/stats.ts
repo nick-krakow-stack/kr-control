@@ -146,4 +146,100 @@ stats.get("/", async (c) => {
   });
 });
 
+stats.get("/report", async (c) => {
+  const user = c.get("user");
+  const db = c.env.DB;
+  const accessible = await getAccessibleLocationIds(db, user);
+
+  const { from, to } = c.req.query();
+  const fromDate = from ? new Date(from) : new Date(0);
+  const toDate = to ? new Date(to) : new Date();
+  // to = end of day
+  if (to) { toDate.setHours(23, 59, 59, 999); }
+
+  const fromISO = fromDate.toISOString();
+  const toISO = toDate.toISOString();
+
+  // Build location filter
+  let locFilter = "";
+  let locVals: unknown[] = [];
+  if (accessible !== null) {
+    if (accessible.length === 0) {
+      return c.json({ from: fromISO, to: toISO, total_cases: 0, total_amount_ticket: 0, total_amount_letter: 0, per_location: [] });
+    }
+    locFilter = `AND c.location_id IN (${accessible.map(() => "?").join(",")})`;
+    locVals = [...accessible];
+  }
+
+  // Total cases in range
+  const totalRow = await db.prepare(
+    `SELECT COUNT(*) as cnt FROM cases c WHERE c.reported_at >= ? AND c.reported_at <= ? ${locFilter}`
+  ).bind(fromISO, toISO, ...locVals).first<{ cnt: number }>();
+  const total_cases = totalRow?.cnt ?? 0;
+
+  // Get fee defaults
+  const defaults = await db.prepare(
+    "SELECT key, value FROM settings WHERE key IN ('fee_ticket_default', 'fee_letter_default')"
+  ).all<{ key: string; value: string }>();
+  const defaultTicket = Number(defaults.results.find(r => r.key === "fee_ticket_default")?.value ?? 35);
+  const defaultLetter = Number(defaults.results.find(r => r.key === "fee_letter_default")?.value ?? 15);
+
+  // Per-location breakdown
+  let locQuery: string;
+  let locQueryVals: unknown[];
+  if (accessible === null) {
+    locQuery = `
+      SELECT l.id, l.name, l.fee_ticket, l.fee_letter,
+             COUNT(c.id) as case_count,
+             SUM(CASE WHEN c.letter_sent_at IS NOT NULL THEN 1 ELSE 0 END) as letter_count
+      FROM locations l
+      LEFT JOIN cases c ON c.location_id = l.id AND c.reported_at >= ? AND c.reported_at <= ?
+      GROUP BY l.id, l.name, l.fee_ticket, l.fee_letter
+      HAVING case_count > 0
+      ORDER BY case_count DESC
+    `;
+    locQueryVals = [fromISO, toISO];
+  } else {
+    const ph = accessible.map(() => "?").join(",");
+    locQuery = `
+      SELECT l.id, l.name, l.fee_ticket, l.fee_letter,
+             COUNT(c.id) as case_count,
+             SUM(CASE WHEN c.letter_sent_at IS NOT NULL THEN 1 ELSE 0 END) as letter_count
+      FROM locations l
+      LEFT JOIN cases c ON c.location_id = l.id AND c.reported_at >= ? AND c.reported_at <= ?
+      WHERE l.id IN (${ph})
+      GROUP BY l.id, l.name, l.fee_ticket, l.fee_letter
+      HAVING case_count > 0
+      ORDER BY case_count DESC
+    `;
+    locQueryVals = [fromISO, toISO, ...accessible];
+  }
+
+  const locRows = await db.prepare(locQuery).bind(...locQueryVals).all<{
+    id: number; name: string; fee_ticket: number | null; fee_letter: number | null;
+    case_count: number; letter_count: number;
+  }>();
+
+  let total_amount_ticket = 0;
+  let total_amount_letter = 0;
+
+  const per_location = locRows.results.map((l) => {
+    const feeT = l.fee_ticket ?? defaultTicket;
+    const feeL = l.fee_letter ?? defaultLetter;
+    const amt_ticket = l.case_count * feeT;
+    const amt_letter = l.letter_count * feeL;
+    total_amount_ticket += amt_ticket;
+    total_amount_letter += amt_letter;
+    return {
+      location_id: l.id,
+      name: l.name,
+      count: l.case_count,
+      amount_ticket: amt_ticket,
+      amount_letter: amt_letter,
+    };
+  });
+
+  return c.json({ from: fromISO, to: toISO, total_cases, total_amount_ticket, total_amount_letter, per_location });
+});
+
 export default stats;
