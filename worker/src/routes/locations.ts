@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { Env, User, Location } from "../types";
-import { authMiddleware, requireAdmin, getAccessibleLocationIds } from "../middleware";
+import { authMiddleware, requireAdmin, requireAdminOrBuchhaltung, getAccessibleLocationIds } from "../middleware";
 
 const locations = new Hono<{ Bindings: Env; Variables: { user: User } }>();
 
@@ -63,6 +63,21 @@ locations.get("/:id", async (c) => {
     .bind(id).first<Location>();
   if (!loc) return c.json({ detail: "Parkplatz nicht gefunden" }, 404);
   return c.json(await withCasesCount(c.env.DB, loc));
+});
+
+locations.patch("/:id/fees", requireAdminOrBuchhaltung, async (c) => {
+  const id = Number(c.req.param("id"));
+  const data = await c.req.json();
+  const loc = await c.env.DB.prepare("SELECT id FROM locations WHERE id = ?").bind(id).first();
+  if (!loc) return c.json({ detail: "Parkplatz nicht gefunden" }, 404);
+
+  await c.env.DB.prepare(
+    "UPDATE locations SET fee_ticket=?, fee_letter=? WHERE id=?"
+  ).bind(data.fee_ticket ?? null, data.fee_letter ?? null, id).run();
+
+  const updated = await c.env.DB.prepare("SELECT * FROM locations WHERE id = ?")
+    .bind(id).first<Location>();
+  return c.json(await withCasesCount(c.env.DB, updated!));
 });
 
 locations.put("/:id", requireAdmin, async (c) => {

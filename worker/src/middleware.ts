@@ -35,14 +35,22 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: { user
 
 export async function requireStaff(c: Context<{ Bindings: Env; Variables: { user: User } }>, next: Next) {
   const user = c.get("user");
-  if (!["admin", "mitarbeiter"].includes(user.role)) {
+  if (!["admin", "mitarbeiter", "buchhaltung"].includes(user.role)) {
+    return c.json({ detail: "Kein Zugriff" }, 403);
+  }
+  await next();
+}
+
+export async function requireAdminOrBuchhaltung(c: Context<{ Bindings: Env; Variables: { user: User } }>, next: Next) {
+  const user = c.get("user");
+  if (!["admin", "buchhaltung"].includes(user.role)) {
     return c.json({ detail: "Kein Zugriff" }, 403);
   }
   await next();
 }
 
 export async function getAccessibleLocationIds(db: D1Database, user: User): Promise<number[] | null> {
-  if (user.role === "admin") return null;
+  if (user.role === "admin" || user.role === "buchhaltung") return null;
   const rows = await db.prepare(
     "SELECT location_id FROM user_locations WHERE user_id = ?"
   ).bind(user.id).all<{ location_id: number }>();

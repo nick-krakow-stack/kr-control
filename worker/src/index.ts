@@ -64,6 +64,61 @@ async function promotePendingCases(db: D1Database) {
   }
 }
 
+// ── Anonymisierung: DSGVO-Fristen ────────────────────────────────────
+async function deleteImagesForCase(db: D1Database, uploads: R2Bucket, caseId: number) {
+  const images = await db.prepare("SELECT filename FROM case_images WHERE case_id = ?")
+    .bind(caseId).all<{ filename: string }>();
+  await Promise.all(images.results.map((img) => uploads.delete(img.filename)));
+  await db.prepare("DELETE FROM case_images WHERE case_id = ?").bind(caseId).run();
+}
+
+async function anonymizeCases(db: D1Database, uploads: R2Bucket) {
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const cutoff30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const cutoff7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // 1. Status 'new' seit 30+ Tagen → geschlossen (abandoned) + sofort anonymisieren
+  const abandoned = await db.prepare(
+    "SELECT id FROM cases WHERE status = 'new' AND created_at <= ? AND anonymized_at IS NULL"
+  ).bind(cutoff30).all<{ id: number }>();
+  for (const row of abandoned.results) {
+    await db.prepare(
+      `UPDATE cases SET status='closed', closed_reason='abandoned', closed_at=?,
+       license_plate='XX XX 111', owner_first_name='Falsch', owner_last_name='Parker',
+       owner_street=NULL, owner_zip=NULL, anonymized_at=? WHERE id=?`
+    ).bind(nowIso, nowIso, row.id).run();
+    await deleteImagesForCase(db, uploads, row.id);
+  }
+
+  // 2. Status 'closed' (manuell) seit 7+ Tagen → anonymisieren
+  const manualClosed = await db.prepare(
+    "SELECT id FROM cases WHERE status = 'closed' AND closed_reason = 'manual' AND closed_at <= ? AND anonymized_at IS NULL"
+  ).bind(cutoff7).all<{ id: number }>();
+  for (const row of manualClosed.results) {
+    await db.prepare(
+      `UPDATE cases SET license_plate='XX XX 111', owner_first_name='Falsch', owner_last_name='Parker',
+       owner_street=NULL, owner_zip=NULL, anonymized_at=? WHERE id=?`
+    ).bind(nowIso, row.id).run();
+    await deleteImagesForCase(db, uploads, row.id);
+  }
+
+  // 3. Status 'paid' seit 30+ Tagen → anonymisieren
+  const paid = await db.prepare(
+    "SELECT id FROM cases WHERE status = 'paid' AND paid_at <= ? AND anonymized_at IS NULL"
+  ).bind(cutoff30).all<{ id: number }>();
+  for (const row of paid.results) {
+    await db.prepare(
+      `UPDATE cases SET license_plate='XX XX 111', owner_first_name='Falsch', owner_last_name='Parker',
+       owner_street=NULL, owner_zip=NULL, anonymized_at=? WHERE id=?`
+    ).bind(nowIso, row.id).run();
+    await deleteImagesForCase(db, uploads, row.id);
+  }
+
+  const total = abandoned.results.length + manualClosed.results.length + paid.results.length;
+  if (total > 0) console.log(`Anonymisierung: ${total} Fälle anonymisiert`);
+}
+
 // ── Seed admin on first run ──────────────────────────────────────────
 async function seedAdmin(env: Env) {
   const count = await env.DB.prepare("SELECT COUNT(*) as c FROM users").first<{ c: number }>();
@@ -94,6 +149,9 @@ export default {
   },
 
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(promotePendingCases(env.DB));
+    ctx.waitUntil(Promise.all([
+      promotePendingCases(env.DB),
+      anonymizeCases(env.DB, env.UPLOADS),
+    ]));
   },
 };

@@ -62,6 +62,16 @@ export type Case = {
   recall_deadline: string | null;
   recalled_at: string | null;
   reported_by_user_id: number | null;
+  owner_first_name: string | null;
+  owner_last_name: string | null;
+  owner_street: string | null;
+  owner_zip: string | null;
+  owner_city: string | null;
+  anonymized_at: string | null;
+  closed_reason: string | null;
+  paid_at: string | null;
+  paid_amount: number | null;
+  closed_at: string | null;
 };
 
 export type CaseImage = {
@@ -89,5 +99,6 @@ export type CaseEvent = {
 };
 
 export const SELF_CONTROL_ROLES = new Set(["self_control_business", "self_control_private"]);
-export const STAFF_ROLES = new Set(["admin", "mitarbeiter"]);
-export const VALID_ROLES = new Set(["admin", "mitarbeiter", "self_control_business", "self_control_private"]);
+export const STAFF_ROLES = new Set(["admin", "mitarbeiter", "buchhaltung"]);
+export const VALID_ROLES = new Set(["admin", "mitarbeiter", "buchhaltung", "self_control_business", "self_control_private"]);
+export const BUCHHALTUNG_ADMIN_ROLES = new Set(["admin", "buchhaltung"]);

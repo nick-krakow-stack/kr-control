@@ -35,7 +35,7 @@ export async function renderCases() {
       <!-- Filter -->
       <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-4">
         <div class="flex flex-wrap gap-3">
-          <input id="filterSearch" type="text" placeholder="Kennzeichen suchen..."
+          <input id="filterSearch" type="text" placeholder="Kennzeichen oder Ticket-Nr. suchen..."
             class="flex-1 min-w-48 px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
           <select id="filterStatus" class="px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition w-auto min-w-40">
             <option value="">Alle Status</option>
@@ -44,6 +44,14 @@ export async function renderCases() {
           <select id="filterLocation" class="px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition w-auto min-w-40">
             <option value="">Alle Parkplätze</option>
           </select>
+          <select id="filterSort" class="px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition w-auto min-w-44">
+            <option value="newest">Neueste zuerst</option>
+            <option value="oldest">Älteste zuerst</option>
+          </select>
+          <label class="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 cursor-pointer select-none hover:bg-slate-50 transition text-sm whitespace-nowrap bg-white">
+            <input type="checkbox" id="filterHideClosed" checked class="w-4 h-4 rounded accent-blue-600"/>
+            Abgeschlossene ausblenden
+          </label>
           <button id="btnClearFilters"
             class="px-4 py-2.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors text-sm">
             Zurücksetzen
@@ -81,7 +89,9 @@ export async function initCases() {
   try {
     [allCases, locations] = await Promise.all([api.getCases(), api.getLocations()]);
     populateLocationFilter();
-    renderTable(allCases);
+    // Apply default filter: hide closed cases, sort newest first
+    const defaultVisible = allCases.filter((c) => !CLOSED_STATUSES.has(c.status));
+    renderTable(defaultVisible);
     setupFilters();
   } catch (err) {
     document.getElementById("casesTableBody").innerHTML = `
@@ -158,30 +168,46 @@ function renderTable(cases) {
   }).join("");
 }
 
+const CLOSED_STATUSES = new Set(["closed", "paid", "recalled"]);
+
 function setupFilters() {
   const applyFilters = () => {
     const search = document.getElementById("filterSearch").value.trim().toLowerCase();
     const status = document.getElementById("filterStatus").value;
     const locationId = document.getElementById("filterLocation").value;
-    const filtered = allCases.filter((c) => {
+    const hideClosed = document.getElementById("filterHideClosed").checked;
+    const sort = document.getElementById("filterSort").value;
+
+    let filtered = allCases.filter((c) => {
       const matchSearch = !search ||
         c.license_plate.toLowerCase().includes(search) ||
         (c.ticket_number && c.ticket_number.toLowerCase().includes(search));
       const matchStatus = !status || c.status === status;
       const matchLocation = !locationId || c.location_id === parseInt(locationId);
-      return matchSearch && matchStatus && matchLocation;
+      const matchClosed = !hideClosed || !CLOSED_STATUSES.has(c.status);
+      return matchSearch && matchStatus && matchLocation && matchClosed;
     });
+
+    filtered = filtered.slice().sort((a, b) => {
+      const diff = new Date(a.reported_at) - new Date(b.reported_at);
+      return sort === "oldest" ? diff : -diff;
+    });
+
     renderTable(filtered);
   };
 
   document.getElementById("filterSearch").addEventListener("input", applyFilters);
   document.getElementById("filterStatus").addEventListener("change", applyFilters);
   document.getElementById("filterLocation").addEventListener("change", applyFilters);
+  document.getElementById("filterSort").addEventListener("change", applyFilters);
+  document.getElementById("filterHideClosed").addEventListener("change", applyFilters);
   document.getElementById("btnClearFilters").addEventListener("click", () => {
     document.getElementById("filterSearch").value = "";
     document.getElementById("filterStatus").value = "";
     document.getElementById("filterLocation").value = "";
-    renderTable(allCases);
+    document.getElementById("filterSort").value = "newest";
+    document.getElementById("filterHideClosed").checked = true;
+    applyFilters();
   });
 }
 

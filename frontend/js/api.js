@@ -81,6 +81,7 @@ export const api = {
   getLocation: (id) => request("GET", `/api/locations/${id}`),
   createLocation: (data) => request("POST", "/api/locations", data),
   updateLocation: (id, data) => request("PUT", `/api/locations/${id}`, data),
+  updateLocationFees: (id, data) => request("PATCH", `/api/locations/${id}/fees`, data),
   deleteLocation: (id) => request("DELETE", `/api/locations/${id}`),
 
   // Cases
@@ -91,6 +92,7 @@ export const api = {
   getCase: (id) => request("GET", `/api/cases/${id}`),
   createCase: (formData) => request("POST", "/api/cases", formData, true),
   updateStatus: (id, data) => request("PATCH", `/api/cases/${id}/status`, data),
+  updateCaseOwner: (id, data) => request("PATCH", `/api/cases/${id}/owner`, data),
   recallCase: (id) => request("POST", `/api/cases/${id}/recall`),
   deleteCase: (id) => request("DELETE", `/api/cases/${id}`),
   getCaseEvents: (caseId) => request("GET", `/api/case-events/${caseId}`),

@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { STATUS_LABELS, STATUS_COLORS, CASE_TYPE_LABELS, isSelfControl, isStaff } from "../config.js";
+import { STATUS_LABELS, STATUS_COLORS, CASE_TYPE_LABELS, isSelfControl, isStaff, isBuchhaltungOrAdmin } from "../config.js";
 import { openTicket } from "../ticket.js";
 
 export async function renderCaseDetail(id) {
@@ -47,6 +47,7 @@ function renderDetail(c, location, events = []) {
   const canRecall = c.status === "pending" && c.recall_deadline && new Date(c.recall_deadline) > new Date();
   const selfControl = isSelfControl();
   const staff = isStaff();
+  const canSeeOwner = isBuchhaltungOrAdmin();
 
   // Widerruf-Countdown
   let recallCountdown = "";
@@ -137,6 +138,17 @@ function renderDetail(c, location, events = []) {
           <div class="text-xs text-slate-400 mb-0.5">Brief versandt</div>
           <div class="text-sm font-medium text-slate-700">${c.letter_sent_at ? formatDateTime(c.letter_sent_at) : "–"}</div>
         </div>
+        ${c.status === "paid" && c.paid_amount != null ? `
+          <div>
+            <div class="text-xs text-slate-400 mb-0.5">Bezahlter Betrag</div>
+            <div class="text-sm font-medium text-green-700">${Number(c.paid_amount).toFixed(2)} €</div>
+          </div>
+        ` : ""}
+        ${c.anonymized_at ? `
+          <div class="md:col-span-4">
+            <div class="text-xs text-slate-400">Anonymisiert am ${formatDateTime(c.anonymized_at)}</div>
+          </div>
+        ` : ""}
       </div>
     </div>
 
@@ -166,6 +178,73 @@ function renderDetail(c, location, events = []) {
             class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
         </div>
         <div id="statusUpdateMsg" class="hidden mt-3 text-sm text-green-600 font-medium">Status aktualisiert ✓</div>
+      </div>
+    ` : ""}
+
+    <!-- Halterdaten (nur admin/buchhaltung) -->
+    ${canSeeOwner ? `
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100" id="ownerCard">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-slate-800">Halterdaten</h2>
+          ${!c.anonymized_at ? `
+            <button id="btnEditOwner" class="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">Bearbeiten</button>
+          ` : ""}
+        </div>
+        <div id="ownerDisplay">
+          ${(c.owner_first_name || c.owner_last_name) ? `
+            <div class="space-y-1 text-sm text-slate-700">
+              <div class="font-medium">${[c.owner_first_name, c.owner_last_name].filter(Boolean).join(" ")}</div>
+              ${c.owner_street ? `<div>${c.owner_street}</div>` : ""}
+              ${(c.owner_zip || c.owner_city) ? `<div>${[c.owner_zip, c.owner_city].filter(Boolean).join(" ")}</div>` : ""}
+            </div>
+          ` : `
+            <div class="text-sm text-slate-400">Noch keine Halterdaten erfasst.</div>
+          `}
+        </div>
+        ${!c.anonymized_at ? `
+          <div id="ownerForm" class="hidden space-y-3 mt-2">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Vorname</label>
+                <input id="ownerFirstName" type="text" value="${c.owner_first_name || ""}"
+                  class="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Nachname</label>
+                <input id="ownerLastName" type="text" value="${c.owner_last_name || ""}"
+                  class="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Straße</label>
+              <input id="ownerStreet" type="text" value="${c.owner_street || ""}"
+                class="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">PLZ</label>
+                <input id="ownerZip" type="text" value="${c.owner_zip || ""}"
+                  class="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              </div>
+              <div class="col-span-2">
+                <label class="block text-xs font-medium text-slate-600 mb-1">Ort</label>
+                <input id="ownerCity" type="text" value="${c.owner_city || ""}"
+                  class="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              </div>
+            </div>
+            <div class="flex gap-2 pt-1">
+              <button id="btnSaveOwner"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors">
+                Speichern
+              </button>
+              <button id="btnCancelOwner"
+                class="px-4 py-2 border border-slate-200 text-slate-600 text-sm rounded-xl hover:bg-slate-50 transition-colors">
+                Abbrechen
+              </button>
+              <span id="ownerSaveMsg" class="hidden text-sm text-green-600 font-medium self-center ml-1">Gespeichert ✓</span>
+            </div>
+          </div>
+        ` : ""}
       </div>
     ` : ""}
 
@@ -270,6 +349,39 @@ function renderDetail(c, location, events = []) {
     }
   };
 
+  // Halterdaten bearbeiten
+  const btnEditOwner = document.getElementById("btnEditOwner");
+  if (btnEditOwner) {
+    btnEditOwner.addEventListener("click", () => {
+      document.getElementById("ownerDisplay").classList.add("hidden");
+      document.getElementById("ownerForm").classList.remove("hidden");
+    });
+    document.getElementById("btnCancelOwner").addEventListener("click", () => {
+      document.getElementById("ownerForm").classList.add("hidden");
+      document.getElementById("ownerDisplay").classList.remove("hidden");
+    });
+    document.getElementById("btnSaveOwner").addEventListener("click", async () => {
+      try {
+        await api.updateCaseOwner(c.id, {
+          owner_first_name: document.getElementById("ownerFirstName").value.trim() || null,
+          owner_last_name: document.getElementById("ownerLastName").value.trim() || null,
+          owner_street: document.getElementById("ownerStreet").value.trim() || null,
+          owner_zip: document.getElementById("ownerZip").value.trim() || null,
+          owner_city: document.getElementById("ownerCity").value.trim() || null,
+        });
+        const msg = document.getElementById("ownerSaveMsg");
+        msg.classList.remove("hidden");
+        setTimeout(() => msg.classList.add("hidden"), 2000);
+        const updated = await api.getCase(c.id);
+        const locs = await api.getLocations();
+        const evts = await api.getCaseEvents(c.id).catch(() => []);
+        renderDetail(updated, locs.find((l) => l.id === updated.location_id), evts);
+      } catch (err) {
+        alert("Fehler: " + err.message);
+      }
+    });
+  }
+
   window.confirmDeleteCase = async (caseId) => {
     if (!confirm("Fall wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.")) return;
     try {
@@ -287,6 +399,7 @@ function eventMeta(ev) {
     status_changed:{ icon: "→", color: "bg-slate-100 text-slate-600", label: `Status: ${STATUS_LABELS[ev.new_status] || ev.new_status}` },
     recalled:      { icon: "↩", color: "bg-amber-100 text-amber-600", label: "Fall widerrufen" },
     deleted:       { icon: "✕", color: "bg-red-100 text-red-600",     label: "Fall gelöscht" },
+    owner_updated: { icon: "✎", color: "bg-teal-100 text-teal-600",   label: "Halterdaten aktualisiert" },
   };
   return map[ev.action] ?? { icon: "•", color: "bg-slate-100 text-slate-500", label: ev.action };
 }

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { Env, User, Case, CaseImage, SELF_CONTROL_ROLES } from "../types";
-import { authMiddleware, getAccessibleLocationIds } from "../middleware";
+import { authMiddleware, requireAdminOrBuchhaltung, getAccessibleLocationIds } from "../middleware";
 import { sendRecallConfirmationEmail } from "../email";
 
 const cases = new Hono<{ Bindings: Env; Variables: { user: User } }>();
@@ -169,6 +169,25 @@ cases.patch("/:id/status", async (c) => {
   }
   if (status === "letter_sent") { updates.push("letter_sent_at = ?"); values.push(new Date().toISOString()); }
   if (status === "ordnungsamt") { updates.push("ordnungsamt_requested_at = ?"); values.push(new Date().toISOString()); }
+  if (status === "closed") {
+    updates.push("closed_at = ?"); values.push(new Date().toISOString());
+    updates.push("closed_reason = ?"); values.push("manual");
+  }
+  if (status === "paid") {
+    const nowIso = new Date().toISOString();
+    updates.push("paid_at = ?"); values.push(nowIso);
+    const loc = await c.env.DB.prepare("SELECT fee_ticket, fee_letter FROM locations WHERE id = ?")
+      .bind(ca.location_id).first<{ fee_ticket: number | null; fee_letter: number | null }>();
+    const settingsRows = await c.env.DB.prepare(
+      "SELECT key, value FROM settings WHERE key IN ('fee_ticket_default', 'fee_letter_default')"
+    ).all<{ key: string; value: string }>();
+    const defaultTicket = Number(settingsRows.results.find((s) => s.key === "fee_ticket_default")?.value ?? 35);
+    const defaultLetter = Number(settingsRows.results.find((s) => s.key === "fee_letter_default")?.value ?? 15);
+    const paidAmount = ca.letter_sent_at
+      ? (loc?.fee_letter ?? defaultLetter)
+      : (loc?.fee_ticket ?? defaultTicket);
+    updates.push("paid_amount = ?"); values.push(paidAmount);
+  }
 
   values.push(id);
   await c.env.DB.prepare(`UPDATE cases SET ${updates.join(", ")} WHERE id = ?`)
@@ -176,6 +195,26 @@ cases.patch("/:id/status", async (c) => {
 
   await logEvent(c.env.DB, id, user.id, "status_changed", ca.status, status, notes || null);
 
+  return c.json({ ok: true });
+});
+
+cases.patch("/:id/owner", requireAdminOrBuchhaltung, async (c) => {
+  const id = Number(c.req.param("id"));
+  const ca = await c.env.DB.prepare("SELECT * FROM cases WHERE id = ?").bind(id).first<Case>();
+  if (!ca) return c.json({ detail: "Fall nicht gefunden" }, 404);
+  if (!(await checkLocationAccess(c.env.DB, c.get("user"), ca.location_id))) {
+    return c.json({ detail: "Kein Zugriff auf diesen Standort" }, 403);
+  }
+
+  const { owner_first_name, owner_last_name, owner_street, owner_zip, owner_city } = await c.req.json();
+  await c.env.DB.prepare(
+    `UPDATE cases SET owner_first_name=?, owner_last_name=?, owner_street=?, owner_zip=?, owner_city=? WHERE id=?`
+  ).bind(
+    owner_first_name ?? null, owner_last_name ?? null,
+    owner_street ?? null, owner_zip ?? null, owner_city ?? null, id
+  ).run();
+
+  await logEvent(c.env.DB, id, c.get("user").id, "owner_updated", null, null, null);
   return c.json({ ok: true });
 });
 
