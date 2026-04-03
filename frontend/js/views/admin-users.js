@@ -21,6 +21,11 @@ export async function renderAdminUsers() {
         </button>
       </div>
 
+      <div class="mb-4">
+        <input id="userSearch" type="text" placeholder="Benutzer suchen..."
+          class="w-full max-w-sm px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white shadow-sm"/>
+      </div>
+
       <div id="usersTable" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div class="p-8 text-center text-slate-400">Lade Benutzer...</div>
       </div>
@@ -104,6 +109,7 @@ export async function initAdminUsers() {
     [allUsers, allLocations] = await Promise.all([api.getUsers(), api.getLocations()]);
     renderTable();
     setupModal();
+    setupSearch();
   } catch (err) {
     document.getElementById("usersTable").innerHTML = `
       <div class="p-6 text-red-500 text-sm">Fehler: ${err.message}</div>
@@ -111,9 +117,26 @@ export async function initAdminUsers() {
   }
 }
 
-function renderTable() {
+function setupSearch() {
+  const input = document.getElementById("userSearch");
+  if (!input) return;
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    if (!q) {
+      renderTable(allUsers);
+      return;
+    }
+    const filtered = allUsers.filter((u) =>
+      u.username.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q)
+    );
+    renderTable(filtered);
+  });
+}
+
+function renderTable(users = allUsers) {
   const el = document.getElementById("usersTable");
-  if (!allUsers.length) {
+  if (!users.length) {
     el.innerHTML = `<div class="p-12 text-center text-slate-400">Noch keine Benutzer vorhanden</div>`;
     return;
   }
@@ -131,7 +154,7 @@ function renderTable() {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-50">
-          ${allUsers.map((u) => `
+          ${users.map((u) => `
             <tr class="hover:bg-slate-50 transition-colors">
               <td class="px-6 py-4">
                 <div class="font-medium text-slate-800">${u.username}</div>

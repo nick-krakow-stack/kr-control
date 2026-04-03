@@ -164,7 +164,9 @@ function setupFilters() {
     const status = document.getElementById("filterStatus").value;
     const locationId = document.getElementById("filterLocation").value;
     const filtered = allCases.filter((c) => {
-      const matchSearch = !search || c.license_plate.toLowerCase().includes(search);
+      const matchSearch = !search ||
+        c.license_plate.toLowerCase().includes(search) ||
+        (c.ticket_number && c.ticket_number.toLowerCase().includes(search));
       const matchStatus = !status || c.status === status;
       const matchLocation = !locationId || c.location_id === parseInt(locationId);
       return matchSearch && matchStatus && matchLocation;

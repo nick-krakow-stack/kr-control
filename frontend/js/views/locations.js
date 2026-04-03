@@ -32,6 +32,11 @@ export async function renderLocations() {
         ` : ""}
       </div>
 
+      <div class="mb-4">
+        <input id="locationSearch" type="text" placeholder="Parkplatz suchen..."
+          class="w-full max-w-sm px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white shadow-sm"/>
+      </div>
+
       <div id="locationsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         ${[1,2,3].map(() => `
           <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 animate-pulse">
@@ -166,6 +171,7 @@ async function loadLocations() {
   try {
     allLocations = await api.getLocations();
     renderGrid();
+    setupSearch();
   } catch (err) {
     document.getElementById("locationsGrid").innerHTML = `
       <div class="col-span-full text-red-500 text-sm">Fehler beim Laden: ${err.message}</div>
@@ -173,11 +179,29 @@ async function loadLocations() {
   }
 }
 
-function renderGrid() {
+function setupSearch() {
+  const input = document.getElementById("locationSearch");
+  if (!input) return;
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    if (!q) {
+      renderGrid(allLocations);
+      return;
+    }
+    const filtered = allLocations.filter((l) =>
+      l.name.toLowerCase().includes(q) ||
+      (l.address && l.address.toLowerCase().includes(q)) ||
+      (l.client_name && l.client_name.toLowerCase().includes(q))
+    );
+    renderGrid(filtered);
+  });
+}
+
+function renderGrid(locs = allLocations) {
   const grid = document.getElementById("locationsGrid");
   const admin = isAdmin();
 
-  if (!allLocations.length) {
+  if (!locs.length) {
     grid.innerHTML = `
       <div class="col-span-full bg-white rounded-2xl p-12 text-center border border-dashed border-slate-200">
         <p class="text-slate-500 font-medium">Noch keine Parkplätze</p>
@@ -187,7 +211,7 @@ function renderGrid() {
     return;
   }
 
-  grid.innerHTML = allLocations.map((loc) => `
+  grid.innerHTML = locs.map((loc) => `
     <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all group">
       <div class="flex items-start justify-between mb-3">
         <div class="flex-1 min-w-0">

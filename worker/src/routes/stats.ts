@@ -98,35 +98,39 @@ stats.get("/", async (c) => {
 
   // Open amounts: sum fee_ticket for open cases joined to location fees
   // Uses location fee if set, otherwise global default
-  let open_amount_ticket = 0;
-  let open_amount_letter = 0;
+  let open_amount_ticket = 0;  // Fälle ohne Brief → Ticket-Gebühr
+  let open_amount_letter = 0;  // Fälle mit Brief → Brief-Gebühr (ersetzt Ticket)
 
   const defaults = await db.prepare("SELECT key, value FROM settings WHERE key IN ('fee_ticket_default', 'fee_letter_default')").all<{key: string; value: string}>();
   const defaultTicket = Number(defaults.results.find(r => r.key === 'fee_ticket_default')?.value ?? 35);
   const defaultLetter = Number(defaults.results.find(r => r.key === 'fee_letter_default')?.value ?? 15);
 
-  // Cases with ticket status (ticket_issued, in_progress, new) — count ticket fees
-  // Cases with letter_sent_at — additionally count letter fees
   if (accessible === null) {
     const ticketRows = await db.prepare(
-      `SELECT c.status, c.letter_sent_at, l.fee_ticket, l.fee_letter
+      `SELECT c.letter_sent_at, l.fee_ticket, l.fee_letter
        FROM cases c JOIN locations l ON c.location_id = l.id
        WHERE c.status IN ('new','ticket_issued','in_progress')`
-    ).all<{status: string; letter_sent_at: string | null; fee_ticket: number | null; fee_letter: number | null}>();
+    ).all<{letter_sent_at: string | null; fee_ticket: number | null; fee_letter: number | null}>();
     for (const row of ticketRows.results) {
-      open_amount_ticket += row.fee_ticket ?? defaultTicket;
-      if (row.letter_sent_at) open_amount_letter += row.fee_letter ?? defaultLetter;
+      if (row.letter_sent_at) {
+        open_amount_letter += row.fee_letter ?? defaultLetter;
+      } else {
+        open_amount_ticket += row.fee_ticket ?? defaultTicket;
+      }
     }
   } else if (accessible.length > 0) {
     const placeholders = accessible.map(() => "?").join(",");
     const ticketRows = await db.prepare(
-      `SELECT c.status, c.letter_sent_at, l.fee_ticket, l.fee_letter
+      `SELECT c.letter_sent_at, l.fee_ticket, l.fee_letter
        FROM cases c JOIN locations l ON c.location_id = l.id
        WHERE c.status IN ('new','ticket_issued','in_progress') AND c.location_id IN (${placeholders})`
-    ).bind(...accessible).all<{status: string; letter_sent_at: string | null; fee_ticket: number | null; fee_letter: number | null}>();
+    ).bind(...accessible).all<{letter_sent_at: string | null; fee_ticket: number | null; fee_letter: number | null}>();
     for (const row of ticketRows.results) {
-      open_amount_ticket += row.fee_ticket ?? defaultTicket;
-      if (row.letter_sent_at) open_amount_letter += row.fee_letter ?? defaultLetter;
+      if (row.letter_sent_at) {
+        open_amount_letter += row.fee_letter ?? defaultLetter;
+      } else {
+        open_amount_ticket += row.fee_ticket ?? defaultTicket;
+      }
     }
   }
 
@@ -191,6 +195,7 @@ stats.get("/report", async (c) => {
     locQuery = `
       SELECT l.id, l.name, l.fee_ticket, l.fee_letter,
              COUNT(c.id) as case_count,
+             SUM(CASE WHEN c.letter_sent_at IS NULL THEN 1 ELSE 0 END) as ticket_only_count,
              SUM(CASE WHEN c.letter_sent_at IS NOT NULL THEN 1 ELSE 0 END) as letter_count
       FROM locations l
       LEFT JOIN cases c ON c.location_id = l.id AND c.reported_at >= ? AND c.reported_at <= ?
@@ -204,6 +209,7 @@ stats.get("/report", async (c) => {
     locQuery = `
       SELECT l.id, l.name, l.fee_ticket, l.fee_letter,
              COUNT(c.id) as case_count,
+             SUM(CASE WHEN c.letter_sent_at IS NULL THEN 1 ELSE 0 END) as ticket_only_count,
              SUM(CASE WHEN c.letter_sent_at IS NOT NULL THEN 1 ELSE 0 END) as letter_count
       FROM locations l
       LEFT JOIN cases c ON c.location_id = l.id AND c.reported_at >= ? AND c.reported_at <= ?
@@ -217,7 +223,7 @@ stats.get("/report", async (c) => {
 
   const locRows = await db.prepare(locQuery).bind(...locQueryVals).all<{
     id: number; name: string; fee_ticket: number | null; fee_letter: number | null;
-    case_count: number; letter_count: number;
+    case_count: number; ticket_only_count: number; letter_count: number;
   }>();
 
   let total_amount_ticket = 0;
@@ -226,8 +232,8 @@ stats.get("/report", async (c) => {
   const per_location = locRows.results.map((l) => {
     const feeT = l.fee_ticket ?? defaultTicket;
     const feeL = l.fee_letter ?? defaultLetter;
-    const amt_ticket = l.case_count * feeT;
-    const amt_letter = l.letter_count * feeL;
+    const amt_ticket = l.ticket_only_count * feeT;   // nur Fälle ohne Brief
+    const amt_letter = l.letter_count * feeL;          // Fälle mit Brief (ersetzt Ticket)
     total_amount_ticket += amt_ticket;
     total_amount_letter += amt_letter;
     return {
