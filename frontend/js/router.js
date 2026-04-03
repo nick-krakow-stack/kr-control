@@ -91,7 +91,7 @@ export async function navigate() {
     return;
   }
 
-const route = routes[hash];
+  const route = routes[hash];
   if (!route) {
     window.location.hash = isLoggedIn() ? "#/dashboard" : "#/login";
     return;
