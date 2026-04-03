@@ -42,6 +42,8 @@ export type Location = {
   notes: string | null;
   created_at: string;
   cases_count?: number;
+  fee_ticket: number | null;
+  fee_letter: number | null;
 };
 
 export type Case = {

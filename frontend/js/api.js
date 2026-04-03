@@ -97,5 +97,9 @@ export const api = {
   assignLocations: (id, location_ids) => request("PUT", `/api/users/${id}/locations`, { location_ids }),
   resendInvite: (id) => request("POST", `/api/users/${id}/resend-invite`),
 
+  // Settings (Admin)
+  getSettings: () => request("GET", "/api/settings"),
+  updateSettings: (data) => request("PUT", "/api/settings", data),
+
   imageUrl: (filename) => `${API_BASE}/uploads/${filename}`,
 };

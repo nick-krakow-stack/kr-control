@@ -38,12 +38,13 @@ locations.get("/", async (c) => {
 locations.post("/", requireAdmin, async (c) => {
   const data = await c.req.json();
   const result = await c.env.DB.prepare(
-    `INSERT INTO locations (name, address, gps_lat, gps_lng, spots_count, max_duration_minutes, client_name, contract_type, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO locations (name, address, gps_lat, gps_lng, spots_count, max_duration_minutes, client_name, contract_type, notes, fee_ticket, fee_letter)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     data.name, data.address ?? null, data.gps_lat ?? null, data.gps_lng ?? null,
     data.spots_count ?? 0, data.max_duration_minutes ?? 120,
-    data.client_name ?? null, data.contract_type ?? "standard", data.notes ?? null
+    data.client_name ?? null, data.contract_type ?? "standard", data.notes ?? null,
+    data.fee_ticket ?? null, data.fee_letter ?? null
   ).run();
 
   const loc = await c.env.DB.prepare("SELECT * FROM locations WHERE id = ?")
@@ -72,11 +73,12 @@ locations.put("/:id", requireAdmin, async (c) => {
 
   await c.env.DB.prepare(
     `UPDATE locations SET name=?, address=?, gps_lat=?, gps_lng=?, spots_count=?,
-     max_duration_minutes=?, client_name=?, contract_type=?, notes=? WHERE id=?`
+     max_duration_minutes=?, client_name=?, contract_type=?, notes=?, fee_ticket=?, fee_letter=? WHERE id=?`
   ).bind(
     data.name, data.address ?? null, data.gps_lat ?? null, data.gps_lng ?? null,
     data.spots_count ?? 0, data.max_duration_minutes ?? 120,
-    data.client_name ?? null, data.contract_type ?? "standard", data.notes ?? null, id
+    data.client_name ?? null, data.contract_type ?? "standard", data.notes ?? null,
+    data.fee_ticket ?? null, data.fee_letter ?? null, id
   ).run();
 
   const updated = await c.env.DB.prepare("SELECT * FROM locations WHERE id = ?")

@@ -7,6 +7,7 @@ import userRoutes from "./routes/users";
 import locationRoutes from "./routes/locations";
 import caseRoutes from "./routes/cases";
 import statsRoutes from "./routes/stats";
+import settingsRoutes from "./routes/settings";
 
 const app = new Hono<{ Bindings: Env; Variables: { user: User } }>();
 
@@ -42,6 +43,7 @@ app.route("/api/users", userRoutes);
 app.route("/api/locations", locationRoutes);
 app.route("/api/cases", caseRoutes);
 app.route("/api/stats", statsRoutes);
+app.route("/api/settings", settingsRoutes);
 
 // Health check
 app.get("/api/health", (c) => c.json({ status: "ok", service: "KR Control API", version: "3.0.0" }));

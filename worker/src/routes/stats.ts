@@ -96,6 +96,40 @@ stats.get("/", async (c) => {
     reported_at: string; location_id: number; payment_deadline: string | null; recall_deadline: string | null;
   }>();
 
+  // Open amounts: sum fee_ticket for open cases joined to location fees
+  // Uses location fee if set, otherwise global default
+  let open_amount_ticket = 0;
+  let open_amount_letter = 0;
+
+  const defaults = await db.prepare("SELECT key, value FROM settings WHERE key IN ('fee_ticket_default', 'fee_letter_default')").all<{key: string; value: string}>();
+  const defaultTicket = Number(defaults.results.find(r => r.key === 'fee_ticket_default')?.value ?? 35);
+  const defaultLetter = Number(defaults.results.find(r => r.key === 'fee_letter_default')?.value ?? 15);
+
+  // Cases with ticket status (ticket_issued, in_progress, new) — count ticket fees
+  // Cases with letter_sent_at — additionally count letter fees
+  if (accessible === null) {
+    const ticketRows = await db.prepare(
+      `SELECT c.status, c.letter_sent_at, l.fee_ticket, l.fee_letter
+       FROM cases c JOIN locations l ON c.location_id = l.id
+       WHERE c.status IN ('new','ticket_issued','in_progress')`
+    ).all<{status: string; letter_sent_at: string | null; fee_ticket: number | null; fee_letter: number | null}>();
+    for (const row of ticketRows.results) {
+      open_amount_ticket += row.fee_ticket ?? defaultTicket;
+      if (row.letter_sent_at) open_amount_letter += row.fee_letter ?? defaultLetter;
+    }
+  } else if (accessible.length > 0) {
+    const placeholders = accessible.map(() => "?").join(",");
+    const ticketRows = await db.prepare(
+      `SELECT c.status, c.letter_sent_at, l.fee_ticket, l.fee_letter
+       FROM cases c JOIN locations l ON c.location_id = l.id
+       WHERE c.status IN ('new','ticket_issued','in_progress') AND c.location_id IN (${placeholders})`
+    ).bind(...accessible).all<{status: string; letter_sent_at: string | null; fee_ticket: number | null; fee_letter: number | null}>();
+    for (const row of ticketRows.results) {
+      open_amount_ticket += row.fee_ticket ?? defaultTicket;
+      if (row.letter_sent_at) open_amount_letter += row.fee_letter ?? defaultLetter;
+    }
+  }
+
   return c.json({
     total_cases,
     cases_today,
@@ -104,6 +138,8 @@ stats.get("/", async (c) => {
     open_cases,
     deadline_exceeded,
     total_locations,
+    open_amount_ticket,
+    open_amount_letter,
     status_distribution: statusRows.results,
     top_locations: topRows.results,
     recent_cases: recentRows.results,

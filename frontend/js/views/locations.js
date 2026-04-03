@@ -13,13 +13,22 @@ export async function renderLocations() {
           <p class="text-slate-500 text-sm mt-1">Standorte verwalten</p>
         </div>
         ${admin ? `
-          <button id="btnNewLocation"
-            class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
-            Neuer Parkplatz
-          </button>
+          <div class="flex gap-2">
+            <button id="btnSettings"
+              class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2.5 rounded-xl transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              Einstellungen
+            </button>
+            <button id="btnNewLocation"
+              class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Neuer Parkplatz
+            </button>
+          </div>
         ` : ""}
       </div>
 
@@ -82,6 +91,14 @@ export async function renderLocations() {
                   <label class="block text-sm font-medium text-slate-700 mb-1.5">Notizen</label>
                   <textarea id="locNotes" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none" rows="3" placeholder="Interne Notizen..."></textarea>
                 </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Ticket-Gebühr (€)</label>
+                  <input id="locFeeTicket" type="number" min="0" step="0.01" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="Standard verwenden"/>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Brief-Gebühr (€)</label>
+                  <input id="locFeeLetter" type="number" min="0" step="0.01" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="Standard verwenden"/>
+                </div>
               </div>
               <div id="locationFormError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl"></div>
               <div class="flex gap-3 pt-2">
@@ -90,6 +107,44 @@ export async function renderLocations() {
                   Abbrechen
                 </button>
                 <button type="submit" id="btnModalSave"
+                  class="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors">
+                  Speichern
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div id="settingsModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="settingsModalBackdrop"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-slate-800">Globale Gebühren</h3>
+              <button id="settingsModalClose" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <form id="settingsForm" class="p-6 space-y-4">
+              <p class="text-sm text-slate-500">Diese Standardwerte gelten, wenn für einen Standort keine eigene Gebühr festgelegt wurde.</p>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Standard Ticket-Gebühr (€)</label>
+                <input id="settingsFeeTicket" type="number" min="0" step="0.01" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="z.B. 35"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Standard Brief-Gebühr (€)</label>
+                <input id="settingsFeeLetter" type="number" min="0" step="0.01" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="z.B. 15"/>
+              </div>
+              <div id="settingsFormMsg" class="hidden text-sm text-green-600 font-medium">Einstellungen gespeichert ✓</div>
+              <div class="flex gap-3 pt-2">
+                <button type="button" id="btnSettingsCancel"
+                  class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors">
+                  Abbrechen
+                </button>
+                <button type="submit" id="btnSettingsSave"
                   class="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors">
                   Speichern
                 </button>
@@ -183,6 +238,18 @@ function renderGrid() {
             <div class="text-xs text-slate-400">Max. Parkdauer</div>
           </div>
         ` : ""}
+        ${loc.fee_ticket ? `
+          <div class="text-center">
+            <div class="text-lg font-bold text-slate-800">${loc.fee_ticket}€</div>
+            <div class="text-xs text-slate-400">Ticket</div>
+          </div>
+        ` : ""}
+        ${loc.fee_letter ? `
+          <div class="text-center">
+            <div class="text-lg font-bold text-slate-800">${loc.fee_letter}€</div>
+            <div class="text-xs text-slate-400">Brief</div>
+          </div>
+        ` : ""}
       </div>
     </div>
   `).join("");
@@ -223,6 +290,8 @@ function setupModal() {
       client_name: document.getElementById("locClient").value.trim() || null,
       contract_type: document.getElementById("locContract").value,
       notes: document.getElementById("locNotes").value.trim() || null,
+      fee_ticket: parseFloat(document.getElementById("locFeeTicket").value) || null,
+      fee_letter: parseFloat(document.getElementById("locFeeLetter").value) || null,
     };
 
     try {
@@ -254,6 +323,8 @@ function setupModal() {
     document.getElementById("locClient").value = loc.client_name || "";
     document.getElementById("locContract").value = loc.contract_type || "standard";
     document.getElementById("locNotes").value = loc.notes || "";
+    document.getElementById("locFeeTicket").value = loc.fee_ticket ?? "";
+    document.getElementById("locFeeLetter").value = loc.fee_letter ?? "";
     open();
   };
 
@@ -266,4 +337,47 @@ function setupModal() {
       alert("Fehler beim Löschen: " + err.message);
     }
   };
+
+  // Settings modal
+  const settingsModal = document.getElementById("settingsModal");
+  const settingsForm = document.getElementById("settingsForm");
+  const settingsMsg = document.getElementById("settingsFormMsg");
+
+  const openSettings = async () => {
+    settingsModal.classList.remove("hidden");
+    try {
+      const s = await api.getSettings();
+      document.getElementById("settingsFeeTicket").value = s.fee_ticket_default ?? "";
+      document.getElementById("settingsFeeLetter").value = s.fee_letter_default ?? "";
+    } catch {}
+  };
+  const closeSettings = () => {
+    settingsModal.classList.add("hidden");
+    settingsMsg.classList.add("hidden");
+  };
+
+  document.getElementById("btnSettings").addEventListener("click", openSettings);
+  document.getElementById("settingsModalClose").addEventListener("click", closeSettings);
+  document.getElementById("btnSettingsCancel").addEventListener("click", closeSettings);
+  document.getElementById("settingsModalBackdrop").addEventListener("click", closeSettings);
+
+  settingsForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("btnSettingsSave");
+    btn.disabled = true;
+    btn.textContent = "Speichern...";
+    try {
+      await api.updateSettings({
+        fee_ticket_default: parseFloat(document.getElementById("settingsFeeTicket").value) || 35,
+        fee_letter_default: parseFloat(document.getElementById("settingsFeeLetter").value) || 15,
+      });
+      settingsMsg.classList.remove("hidden");
+      setTimeout(() => settingsMsg.classList.add("hidden"), 2000);
+    } catch (err) {
+      alert("Fehler: " + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Speichern";
+    }
+  });
 }
