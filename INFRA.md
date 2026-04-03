@@ -92,7 +92,8 @@ npx wrangler d1 execute kr-control-db --local --command "..."
 
 | Version        | Wann                              |
 |----------------|-----------------------------------|
-| kr-control-v13 | Aktuell (Stand: 2026-04-03) — Audit-Log / case_events |
+| kr-control-v14 | Aktuell (Stand: 2026-04-03) — Auswertung / Report-Endpoint (`GET /api/stats/report`) |
+| kr-control-v13 | Audit-Log / case_events |
 | kr-control-v12 | case-detail.js Statusaktualisierung |
 | kr-control-v11 | Phase 1: ticket.js, password-*.js |
 
