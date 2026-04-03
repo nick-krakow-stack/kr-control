@@ -27,12 +27,13 @@ export async function renderCaseDetail(id) {
 
 export async function initCaseDetail(id) {
   try {
-    const [caseData, locations] = await Promise.all([
+    const [caseData, locations, events] = await Promise.all([
       api.getCase(id),
       api.getLocations(),
+      api.getCaseEvents(id).catch(() => []),
     ]);
     const location = locations.find((l) => l.id === caseData.location_id);
-    renderDetail(caseData, location);
+    renderDetail(caseData, location, events);
   } catch (err) {
     document.getElementById("caseDetailContent").innerHTML = `
       <div class="bg-red-50 border border-red-200 text-red-700 p-6 rounded-2xl">Fehler: ${err.message}</div>
@@ -40,7 +41,7 @@ export async function initCaseDetail(id) {
   }
 }
 
-function renderDetail(c, location) {
+function renderDetail(c, location, events = []) {
   const isDeadlineOver = c.payment_deadline && new Date(c.payment_deadline) < new Date();
   const isOpen = ["new", "ticket_issued", "in_progress"].includes(c.status);
   const canRecall = c.status === "pending" && c.recall_deadline && new Date(c.recall_deadline) > new Date();
@@ -176,6 +177,37 @@ function renderDetail(c, location) {
       </div>
     ` : ""}
 
+    <!-- Verlauf -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+      <h2 class="font-semibold text-slate-800 mb-4">Verlauf</h2>
+      ${events.length ? `
+        <div class="space-y-0">
+          ${events.map((ev, i) => {
+            const isLast = i === events.length - 1;
+            const { icon, color, label } = eventMeta(ev);
+            return `
+              <div class="flex gap-3 ${isLast ? "" : "pb-4"}">
+                <div class="flex flex-col items-center flex-shrink-0">
+                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm ${color}">${icon}</div>
+                  ${isLast ? "" : `<div class="w-0.5 flex-1 bg-slate-100 mt-1"></div>`}
+                </div>
+                <div class="flex-1 min-w-0 pt-1.5">
+                  <div class="flex items-baseline gap-2 flex-wrap">
+                    <span class="text-sm font-medium text-slate-800">${label}</span>
+                    ${ev.username ? `<span class="text-xs text-slate-400">${ev.username}</span>` : ""}
+                  </div>
+                  ${ev.notes ? `<p class="text-xs text-slate-500 mt-0.5">${ev.notes}</p>` : ""}
+                  <p class="text-xs text-slate-400 mt-0.5">${formatDateTime(ev.created_at)}</p>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      ` : `
+        <div class="text-slate-400 text-sm text-center py-4">Noch keine Ereignisse</div>
+      `}
+    </div>
+
     <!-- Fotos -->
     <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
       <h2 class="font-semibold text-slate-800 mb-4">
@@ -214,7 +246,8 @@ function renderDetail(c, location) {
         await api.recallCase(c.id);
         const updated = await api.getCase(c.id);
         const locs = await api.getLocations();
-        renderDetail(updated, locs.find((l) => l.id === updated.location_id));
+        const evts = await api.getCaseEvents(c.id).catch(() => []);
+        renderDetail(updated, locs.find((l) => l.id === updated.location_id), evts);
       } catch (err) {
         alert("Fehler: " + err.message);
       }
@@ -230,7 +263,8 @@ function renderDetail(c, location) {
       if (msg) { msg.classList.remove("hidden"); setTimeout(() => msg.classList.add("hidden"), 2000); }
       const updated = await api.getCase(caseId);
       const locs = await api.getLocations();
-      renderDetail(updated, locs.find((l) => l.id === updated.location_id));
+      const evts = await api.getCaseEvents(caseId).catch(() => []);
+      renderDetail(updated, locs.find((l) => l.id === updated.location_id), evts);
     } catch (err) {
       alert("Fehler: " + err.message);
     }
@@ -245,6 +279,16 @@ function renderDetail(c, location) {
       alert("Fehler beim Löschen: " + err.message);
     }
   };
+}
+
+function eventMeta(ev) {
+  const map = {
+    created:       { icon: "✚", color: "bg-blue-100 text-blue-600",   label: "Fall erstellt" },
+    status_changed:{ icon: "→", color: "bg-slate-100 text-slate-600", label: `Status: ${STATUS_LABELS[ev.new_status] || ev.new_status}` },
+    recalled:      { icon: "↩", color: "bg-amber-100 text-amber-600", label: "Fall widerrufen" },
+    deleted:       { icon: "✕", color: "bg-red-100 text-red-600",     label: "Fall gelöscht" },
+  };
+  return map[ev.action] ?? { icon: "•", color: "bg-slate-100 text-slate-500", label: ev.action };
 }
 
 function formatDateTime(iso) {

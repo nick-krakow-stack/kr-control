@@ -87,6 +87,7 @@ export const api = {
   updateStatus: (id, data) => request("PATCH", `/api/cases/${id}/status`, data),
   recallCase: (id) => request("POST", `/api/cases/${id}/recall`),
   deleteCase: (id) => request("DELETE", `/api/cases/${id}`),
+  getCaseEvents: (caseId) => request("GET", `/api/case-events/${caseId}`),
 
   // Users (Admin)
   getUsers: () => request("GET", "/api/users"),

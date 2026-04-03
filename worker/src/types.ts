@@ -76,6 +76,18 @@ export type CaseImage = {
   uploaded_at: string;
 };
 
+export type CaseEvent = {
+  id: number;
+  case_id: number;
+  user_id: number | null;
+  action: string;
+  old_status: string | null;
+  new_status: string | null;
+  notes: string | null;
+  created_at: string;
+  username?: string; // joined from users
+};
+
 export const SELF_CONTROL_ROLES = new Set(["self_control_business", "self_control_private"]);
 export const STAFF_ROLES = new Set(["admin", "mitarbeiter"]);
 export const VALID_ROLES = new Set(["admin", "mitarbeiter", "self_control_business", "self_control_private"]);

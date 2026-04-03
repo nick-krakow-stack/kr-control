@@ -26,6 +26,12 @@ async function checkLocationAccess(db: D1Database, user: User, locationId: numbe
   return accessible.includes(locationId);
 }
 
+async function logEvent(db: D1Database, caseId: number, userId: number | null, action: string, oldStatus: string | null, newStatus: string | null, notes: string | null = null) {
+  await db.prepare(
+    "INSERT INTO case_events (case_id, user_id, action, old_status, new_status, notes) VALUES (?, ?, ?, ?, ?, ?)"
+  ).bind(caseId, userId, action, oldStatus, newStatus, notes).run();
+}
+
 cases.get("/", async (c) => {
   const user = c.get("user");
   const accessible = await getAccessibleLocationIds(c.env.DB, user);
@@ -105,6 +111,8 @@ cases.post("/", async (c) => {
 
   const caseId = result.meta.last_row_id as number;
 
+  await logEvent(c.env.DB, caseId, user.id, "created", null, initialStatus, null);
+
   // Handle image uploads
   const imageFiles = formData.getAll("images") as unknown as File[];
   for (const file of imageFiles) {
@@ -166,6 +174,8 @@ cases.patch("/:id/status", async (c) => {
   await c.env.DB.prepare(`UPDATE cases SET ${updates.join(", ")} WHERE id = ?`)
     .bind(...values).run();
 
+  await logEvent(c.env.DB, id, user.id, "status_changed", ca.status, status, notes || null);
+
   return c.json({ ok: true });
 });
 
@@ -191,6 +201,8 @@ cases.post("/:id/recall", async (c) => {
   await c.env.DB.prepare(
     "UPDATE cases SET status = 'recalled', recalled_at = ? WHERE id = ?"
   ).bind(recalledAt, id).run();
+
+  await logEvent(c.env.DB, id, user.id, "recalled", ca.status, "recalled", null);
 
   // Bestätigungs-E-Mail an den meldenden User senden
   c.executionCtx.waitUntil((async () => {
@@ -254,6 +266,8 @@ cases.delete("/:id", async (c) => {
       return c.json({ detail: "Kein Löschrecht für diesen Fall" }, 403);
     }
   }
+
+  await logEvent(c.env.DB, id, user.id, "deleted", ca.status, null, null);
 
   // Delete images from R2
   const images = await c.env.DB.prepare("SELECT filename FROM case_images WHERE case_id = ?")
