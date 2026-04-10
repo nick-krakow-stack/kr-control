@@ -59,8 +59,8 @@ export async function renderCases() {
         </div>
       </div>
 
-      <!-- Tabelle -->
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <!-- Tabelle (desktop) -->
+      <div class="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead>
@@ -80,6 +80,11 @@ export async function renderCases() {
           </table>
         </div>
         <div id="casesCount" class="px-6 py-3 border-t border-slate-100 text-xs text-slate-400"></div>
+      </div>
+
+      <!-- Mobile card list -->
+      <div id="casesMobileList" class="md:hidden space-y-2 pb-4">
+        <div class="bg-white rounded-xl border border-slate-100 p-4 shadow-sm text-slate-400 text-sm text-center">Lade Daten...</div>
       </div>
     </div>
   `;
@@ -113,62 +118,82 @@ function populateLocationFilter() {
 function renderTable(cases) {
   const tbody = document.getElementById("casesTableBody");
   const countEl = document.getElementById("casesCount");
+  const mobileList = document.getElementById("casesMobileList");
   const selfControl = isSelfControl();
-  countEl.textContent = `${cases.length} Fälle`;
+  if (countEl) countEl.textContent = `${cases.length} Fälle`;
 
   if (!cases.length) {
-    tbody.innerHTML = `
+    if (tbody) tbody.innerHTML = `
       <tr><td colspan="7" class="px-6 py-12 text-center text-slate-400 text-sm">Keine Fälle gefunden</td></tr>
     `;
+    if (mobileList) mobileList.innerHTML = `<div class="bg-white rounded-xl border border-slate-100 p-4 shadow-sm text-slate-400 text-sm text-center">Keine Fälle gefunden</div>`;
     return;
   }
 
-  tbody.innerHTML = cases.map((c) => {
+  const rows = cases.map((c) => {
     const loc = locations.find((l) => l.id === c.location_id);
     const isDeadlineOver = c.payment_deadline && new Date(c.payment_deadline) < new Date();
     const isOpen = ["new", "ticket_issued", "in_progress"].includes(c.status);
     const canRecall = c.status === "pending" && c.recall_deadline && new Date(c.recall_deadline) > new Date();
 
-    return `
-      <tr class="hover:bg-slate-50 transition-colors cursor-pointer group" onclick="window.location.hash='#/cases/${c.id}'">
-        <td class="px-6 py-4">
-          <span class="font-mono font-semibold text-slate-800">${c.license_plate}</span>
-          ${c.ticket_number ? `<div class="text-xs text-slate-400 mt-0.5">Ticket: ${c.ticket_number}</div>` : ""}
-        </td>
-        <td class="px-4 py-4 text-sm text-slate-600">${loc?.name || "–"}</td>
-        <td class="px-4 py-4 text-sm text-slate-500 whitespace-nowrap">${formatDateTime(c.reported_at)}</td>
-        ${!selfControl ? `
+    return {
+      tr: `
+        <tr class="hover:bg-slate-50 transition-colors cursor-pointer group" onclick="window.location.hash='#/cases/${c.id}'">
+          <td class="px-6 py-4">
+            <span class="font-mono font-semibold text-slate-800">${c.license_plate}</span>
+            ${c.ticket_number ? `<div class="text-xs text-slate-400 mt-0.5">Ticket: ${c.ticket_number}</div>` : ""}
+          </td>
+          <td class="px-4 py-4 text-sm text-slate-600">${loc?.name || "–"}</td>
+          <td class="px-4 py-4 text-sm text-slate-500 whitespace-nowrap">${formatDateTime(c.reported_at)}</td>
+          ${!selfControl ? `
+            <td class="px-4 py-4">
+              <span class="text-xs text-slate-500">${CASE_TYPE_LABELS[c.case_type] || c.case_type}</span>
+            </td>
+          ` : ""}
           <td class="px-4 py-4">
-            <span class="text-xs text-slate-500">${CASE_TYPE_LABELS[c.case_type] || c.case_type}</span>
+            <span class="text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLORS[c.status] || "bg-slate-100 text-slate-600"}">
+              ${STATUS_LABELS[c.status] || c.status}
+            </span>
+            ${canRecall ? `<div class="text-xs text-amber-600 mt-0.5">Widerrufbar</div>` : ""}
           </td>
-        ` : ""}
-        <td class="px-4 py-4">
-          <span class="text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLORS[c.status] || "bg-slate-100 text-slate-600"}">
-            ${STATUS_LABELS[c.status] || c.status}
-          </span>
-          ${canRecall ? `<div class="text-xs text-amber-600 mt-0.5">Widerrufbar</div>` : ""}
-        </td>
-        ${!selfControl ? `
-          <td class="px-4 py-4 text-sm whitespace-nowrap">
-            ${c.payment_deadline
-              ? `<span class="${isDeadlineOver && isOpen ? "text-red-500 font-medium" : "text-slate-400"}">
-                  ${formatDate(c.payment_deadline)}
-                </span>`
-              : "–"
-            }
+          ${!selfControl ? `
+            <td class="px-4 py-4 text-sm whitespace-nowrap">
+              ${c.payment_deadline
+                ? `<span class="${isDeadlineOver && isOpen ? "text-red-500 font-medium" : "text-slate-400"}">
+                    ${formatDate(c.payment_deadline)}
+                  </span>`
+                : "–"
+              }
+            </td>
+          ` : ""}
+          <td class="px-4 py-4 text-right">
+            <svg class="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
           </td>
-        ` : ""}
-        <td class="px-4 py-4 text-right">
-          <svg class="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-          </svg>
-        </td>
-      </tr>
-    `;
-  }).join("");
+        </tr>
+      `,
+      card: `
+        <a href="#/cases/${c.id}" class="block bg-white rounded-xl border border-slate-100 p-4 shadow-sm active:bg-slate-50">
+          <div class="flex items-start justify-between gap-2 mb-2">
+            <span class="font-mono font-bold text-slate-800">${c.license_plate}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[c.status] || "bg-slate-100 text-slate-600"}">${STATUS_LABELS[c.status] || c.status}</span>
+          </div>
+          <div class="text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
+            <span>${loc?.name || "–"}</span>
+            <span>${formatDateTime(c.reported_at)}</span>
+            ${c.payment_deadline && isDeadlineOver && isOpen ? '<span class="text-red-500 font-medium">Frist abgelaufen</span>' : ""}
+          </div>
+        </a>
+      `,
+    };
+  });
+
+  if (tbody) tbody.innerHTML = rows.map((r) => r.tr).join("");
+  if (mobileList) mobileList.innerHTML = rows.map((r) => r.card).join("");
 }
 
-const CLOSED_STATUSES = new Set(["closed", "paid", "recalled"]);
+const CLOSED_STATUSES = new Set(["closed", "paid", "recalled", "second_chance"]);
 
 function setupFilters() {
   const applyFilters = () => {

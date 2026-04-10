@@ -11,6 +11,7 @@ export const STATUS_LABELS = {
   paid: "Bezahlt",
   closed: "Geschlossen",
   recalled: "Widerrufen",
+  second_chance: "Second Chance",
 };
 
 export const STATUS_COLORS = {
@@ -23,6 +24,7 @@ export const STATUS_COLORS = {
   paid: "bg-green-100 text-green-800",
   closed: "bg-slate-100 text-slate-600",
   recalled: "bg-rose-100 text-rose-700",
+  second_chance: "bg-purple-100 text-purple-700",
 };
 
 export const CASE_TYPE_LABELS = {

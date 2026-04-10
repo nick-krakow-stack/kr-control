@@ -2,6 +2,15 @@ import { API_BASE } from "./config.js";
 
 const getToken = () => localStorage.getItem("kr_token");
 
+function buildQuery(params) {
+  if (!params) return '';
+  const q = Object.entries(params)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join('&');
+  return q ? '?' + q : '';
+}
+
 async function request(method, path, body = null, isForm = false) {
   const token = getToken();
   const headers = {};
@@ -95,7 +104,12 @@ export const api = {
   updateCaseOwner: (id, data) => request("PATCH", `/api/cases/${id}/owner`, data),
   recallCase: (id) => request("POST", `/api/cases/${id}/recall`),
   deleteCase: (id) => request("DELETE", `/api/cases/${id}`),
+  anonymizeCase: (id) => request("POST", `/api/cases/${id}/anonymize`, {}),
   getCaseEvents: (caseId) => request("GET", `/api/case-events/${caseId}`),
+
+  // Users (self-service profile)
+  getProfile: () => request("GET", "/api/users/me/profile"),
+  updateProfile: (data) => request("PATCH", "/api/users/me/profile", data),
 
   // Users (Admin)
   getUsers: () => request("GET", "/api/users"),
@@ -111,4 +125,61 @@ export const api = {
   updateSettings: (data) => request("PUT", "/api/settings", data),
 
   imageUrl: (filename) => `${API_BASE}/uploads/${filename}`,
+
+  shifts: {
+    list: (params) => request("GET", "/api/shifts" + buildQuery(params)),
+    create: (data) => request("POST", "/api/shifts", data),
+    end: (id) => request("PATCH", "/api/shifts/" + id + "/end", {}),
+    stats: () => request("GET", "/api/shifts/stats"),
+  },
+  customers: {
+    list: () => request("GET", "/api/customers"),
+    create: (data) => request("POST", "/api/customers", data),
+    get: (id) => request("GET", "/api/customers/" + id),
+    update: (id, data) => request("PUT", "/api/customers/" + id, data),
+    delete: (id) => request("DELETE", "/api/customers/" + id),
+    invite: (id) => request("POST", "/api/customers/" + id + "/invite", {}),
+  },
+  whitelist: {
+    list: (params) => request("GET", "/api/whitelist" + buildQuery(params)),
+    create: (data) => request("POST", "/api/whitelist", data),
+    update: (id, data) => request("PUT", "/api/whitelist/" + id, data),
+    delete: (id) => request("DELETE", "/api/whitelist/" + id),
+  },
+  workTimes: {
+    list: () => request("GET", "/api/work-times"),
+    create: (data) => request("POST", "/api/work-times", data),
+    review: (id, data) => request("PATCH", "/api/work-times/" + id, data),
+  },
+  violations: {
+    list: (params) => request("GET", "/api/violations" + buildQuery(params)),
+    listAdmin: () => request("GET", "/api/violations/admin"),
+    create: (data) => request("POST", "/api/violations", data),
+    update: (id, data) => request("PATCH", "/api/violations/" + id, data),
+    delete: (id) => request("DELETE", "/api/violations/" + id),
+    getLocationPriority: (locationId) => request("GET", "/api/violations/location/" + locationId + "/priority"),
+    setLocationPriority: (locationId, violation_ids) => request("PUT", "/api/violations/location/" + locationId + "/priority", { violation_ids }),
+  },
+  vehicleTypes: {
+    list: (locationId) => request("GET", "/api/vehicle-types" + (locationId ? "?locationId=" + locationId : "")),
+    listAll: () => request("GET", "/api/vehicle-types/all"),
+    create: (data) => request("POST", "/api/vehicle-types", data),
+    update: (id, data) => request("PATCH", "/api/vehicle-types/" + id, data),
+    delete: (id) => request("DELETE", "/api/vehicle-types/" + id),
+    getLocationPriority: (locationId) => request("GET", "/api/vehicle-types/location-priority/" + locationId),
+    setLocationPriority: (data) => request("POST", "/api/vehicle-types/location-priority", data),
+    deleteLocationPriority: (locationId, vehicleTypeId) => request("DELETE", "/api/vehicle-types/location-priority/" + locationId + "/" + vehicleTypeId),
+  },
+  updateVehicleType: (caseId, vehicleTypeId) => request("PATCH", "/api/cases/" + caseId + "/vehicle-type", { vehicle_type_id: vehicleTypeId }),
+  caseFees: {
+    list: (caseId) => request("GET", "/api/case-fees/case/" + caseId),
+    addFollowup: (caseId, data) => request("POST", "/api/case-fees/case/" + caseId + "/followup", data),
+    getTemplates: () => request("GET", "/api/case-fees/templates"),
+    getAllTemplates: () => request("GET", "/api/case-fees/templates/all"),
+    createTemplate: (data) => request("POST", "/api/case-fees/templates", data),
+    updateTemplate: (id, data) => request("PATCH", "/api/case-fees/templates/" + id, data),
+    deleteTemplate: (id) => request("DELETE", "/api/case-fees/templates/" + id),
+  },
+  updateFeeStage: (caseId, stage) => request("PATCH", "/api/cases/" + caseId + "/fee-stage", { stage }),
+  secondChanceRequest: (data) => request("POST", "/api/cases/second-chance-request", data),
 };

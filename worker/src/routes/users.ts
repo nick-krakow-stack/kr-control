@@ -6,7 +6,8 @@ import { sendInviteEmail } from "../email";
 
 const users = new Hono<{ Bindings: Env; Variables: { user: User } }>();
 
-users.use("*", authMiddleware, requireAdmin);
+// Auth required for all routes
+users.use("*", authMiddleware);
 
 function userToResponse(user: User, locationIds: number[] = []) {
   return {
@@ -29,7 +30,48 @@ async function getUserLocationIds(db: D1Database, userId: number): Promise<numbe
   return rows.results.map((r) => r.location_id);
 }
 
-users.get("/", async (c) => {
+// ── Self-service profile endpoints (auth only, no admin required) ──────────
+
+users.get("/me/profile", async (c) => {
+  const currentUser = c.get("user");
+  const user = await c.env.DB.prepare(
+    "SELECT id, username, email, role, first_name, last_name, street, zip, city, iban, bic, bank_name, hourly_rate FROM users WHERE id = ?"
+  ).bind(currentUser.id).first<Pick<User, "id" | "username" | "email" | "role" | "first_name" | "last_name" | "street" | "zip" | "city" | "iban" | "bic" | "bank_name" | "hourly_rate">>();
+  if (!user) return c.json({ detail: "Benutzer nicht gefunden" }, 404);
+  return c.json(user);
+});
+
+users.patch("/me/profile", async (c) => {
+  const currentUser = c.get("user");
+  const data = await c.req.json();
+
+  const ALLOWED_FIELDS = ["first_name", "last_name", "street", "zip", "city", "iban", "bic", "bank_name"] as const;
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  for (const field of ALLOWED_FIELDS) {
+    if (data[field] !== undefined) {
+      updates.push(`${field} = ?`);
+      values.push(data[field]);
+    }
+  }
+
+  if (updates.length > 0) {
+    values.push(currentUser.id);
+    await c.env.DB.prepare(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`)
+      .bind(...values).run();
+  }
+
+  const updated = await c.env.DB.prepare(
+    "SELECT id, username, email, role, first_name, last_name, street, zip, city, iban, bic, bank_name, hourly_rate FROM users WHERE id = ?"
+  ).bind(currentUser.id).first<Pick<User, "id" | "username" | "email" | "role" | "first_name" | "last_name" | "street" | "zip" | "city" | "iban" | "bic" | "bank_name" | "hourly_rate">>();
+  return c.json(updated);
+});
+
+// ── Admin-only routes ──────────────────────────────────────────────────────
+
+users.get("/", requireAdmin, async (c) => {
   const rows = await c.env.DB.prepare(
     "SELECT * FROM users ORDER BY created_at DESC"
   ).all<User>();
@@ -40,7 +82,7 @@ users.get("/", async (c) => {
   return c.json(result);
 });
 
-users.post("/", async (c) => {
+users.post("/", requireAdmin, async (c) => {
   const currentUser = c.get("user");
   const data = await c.req.json();
   const { username, email, role, recall_hours } = data;
@@ -77,14 +119,14 @@ users.post("/", async (c) => {
   return c.json(userToResponse(newUser!, []), 201);
 });
 
-users.get("/:id", async (c) => {
+users.get("/:id", requireAdmin, async (c) => {
   const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
     .bind(Number(c.req.param("id"))).first<User>();
   if (!user) return c.json({ detail: "Benutzer nicht gefunden" }, 404);
   return c.json(userToResponse(user, await getUserLocationIds(c.env.DB, user.id)));
 });
 
-users.put("/:id", async (c) => {
+users.put("/:id", requireAdmin, async (c) => {
   const id = Number(c.req.param("id"));
   const data = await c.req.json();
   const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
@@ -116,6 +158,9 @@ users.put("/:id", async (c) => {
   if (data.recall_hours !== undefined) {
     updates.push("recall_hours = ?"); values.push(data.recall_hours);
   }
+  if (data.hourly_rate !== undefined) {
+    updates.push("hourly_rate = ?"); values.push(data.hourly_rate);
+  }
 
   if (updates.length > 0) {
     values.push(id);
@@ -128,7 +173,32 @@ users.put("/:id", async (c) => {
   return c.json(userToResponse(updated!, await getUserLocationIds(c.env.DB, id)));
 });
 
-users.delete("/:id", async (c) => {
+users.patch("/:id", requireAdmin, async (c) => {
+  const id = Number(c.req.param("id"));
+  const data = await c.req.json();
+  const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
+    .bind(id).first<User>();
+  if (!user) return c.json({ detail: "Benutzer nicht gefunden" }, 404);
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  if (data.hourly_rate !== undefined) {
+    updates.push("hourly_rate = ?"); values.push(data.hourly_rate);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await c.env.DB.prepare(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`)
+      .bind(...values).run();
+  }
+
+  const updated = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
+    .bind(id).first<User>();
+  return c.json(userToResponse(updated!, await getUserLocationIds(c.env.DB, id)));
+});
+
+users.delete("/:id", requireAdmin, async (c) => {
   const currentUser = c.get("user");
   const id = Number(c.req.param("id"));
   if (id === currentUser.id) {
@@ -140,7 +210,7 @@ users.delete("/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-users.put("/:id/locations", async (c) => {
+users.put("/:id/locations", requireAdmin, async (c) => {
   const id = Number(c.req.param("id"));
   const { location_ids } = await c.req.json();
 
@@ -160,7 +230,7 @@ users.put("/:id/locations", async (c) => {
   return c.json({ ok: true });
 });
 
-users.post("/:id/resend-invite", async (c) => {
+users.post("/:id/resend-invite", requireAdmin, async (c) => {
   const id = Number(c.req.param("id"));
   const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
     .bind(id).first<User>();

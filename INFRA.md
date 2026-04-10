@@ -92,10 +92,16 @@ npx wrangler d1 execute kr-control-db --local --command "..."
 
 | Version        | Wann                              |
 |----------------|-----------------------------------|
-| kr-control-v14 | Aktuell (Stand: 2026-04-03) — Auswertung / Report-Endpoint (`GET /api/stats/report`) |
+| kr-control-v22 | Aktuell (Stand: 2026-04-10) — Fahrzeugtypen-Feature (vehicle_types, vehicle_type_location_priority, admin-vehicle-types.js) |
+| kr-control-v21 | Gebührenstufen (case_fees, followup_cost_templates, fee settings), Stufen-Block in Fall-Detail, Zahlungs-Modal |
+| kr-control-v20 | Tatbestände (violations + violation_location_priority), Violation-Picker in Fallerfassung, Standort-Priorisierung |
+| kr-control-v19 | (übersprungen / war lokal) |
+| kr-control-v18 | Mobile Bottom Nav, Arbeitszeiten, Second-Chance-Request, Admin Panel Hub |
+| kr-control-v17 | Kontrolle-Workflow, Kunden, Whitelist, Second-Chance, Schichten-Stats |
+| kr-control-v16 | Datenschutz, Halterdaten, Buchhaltung-Rolle |
+| kr-control-v15 | Live-Suche, Gebühren-Fix |
+| kr-control-v14 | Auswertung / Report-Endpoint |
 | kr-control-v13 | Audit-Log / case_events |
-| kr-control-v12 | case-detail.js Statusaktualisierung |
-| kr-control-v11 | Phase 1: ticket.js, password-*.js |
 
 Cache muss immer gebumpt werden wenn neue JS-Dateien in STATIC_ASSETS aufgenommen werden.
 
@@ -104,13 +110,26 @@ Cache muss immer gebumpt werden wenn neue JS-Dateien in STATIC_ASSETS aufgenomme
 ## Aktueller Schema-Stand
 
 ### Tabellen
-- `users` — Auth, Rollen, Einladungs-Tokens
+- `users` — Auth, Rollen: admin, mitarbeiter, buchhaltung, self_control_business, self_control_private
 - `user_locations` — N:M Zuweisung
-- `locations` — Parkplätze, inkl. `fee_ticket`, `fee_letter` (REAL, nullable)
-- `cases` — Fälle mit Status-Flow
-- `case_images` — Fotos (in R2)
+- `locations` — Parkplätze, inkl. `fee_ticket`, `fee_letter` (REAL, nullable), `customer_id` (FK → customers)
+- `cases` — Fälle mit Status-Flow; Felder: `owner_first_name/last_name/street/zip/city`, `paid_at`, `paid_amount`, `closed_at`, `closed_reason` (manual/abandoned), `anonymized_at`, `shift_id` (FK → shifts)
+- `case_images` — Fotos (in R2), werden bei Anonymisierung gelöscht
 - `settings` — Key/Value, aktuell: `fee_ticket_default=35`, `fee_letter_default=15`
-- `case_events` — Audit-Log (actions: created, status_changed, recalled, deleted)
+- `case_events` — Audit-Log (actions: created, status_changed, recalled, deleted, owner_updated)
+- `customers` — Kunden; Felder: name, email, phone, user_id (FK → users), is_active
+- `shifts` — Kontroll-Schichten; Felder: user_id, location_id, started_at, ended_at, case_count
+- `whitelist` — Berechtigte Kennzeichen; Felder: location_id, license_plate, valid_from, valid_until, note
+- `work_time_requests` — Arbeitszeitanfragen; Felder: user_id, started_at, ended_at, note, status (pending/approved/rejected), reviewed_by, review_note
+- `violations` — Tatbestände; Felder: code (UNIQUE), description, fee_override (REAL nullable), is_active (DEFAULT 1), sort_order (DEFAULT 0)
+- `violation_location_priority` — Standort-spezifische Sortierung; Felder: violation_id (FK), location_id (FK), sort_order; UNIQUE(violation_id, location_id)
+- `cases` hat zusätzlich: violation_id (FK → violations, nullable), offer_expires_at (INTEGER unix), stage_2_due_at (INTEGER unix), current_fee_stage (INTEGER DEFAULT 0), fee_stage_locked (INTEGER DEFAULT 0)
+- `case_fees` — Gebühren-Snapshots/Folgekosten; Felder: case_id (FK), stage, amount, label, recorded_at (INTEGER unix), recorded_by (FK → users)
+- `followup_cost_templates` — Folgekosten-Vorlagen; Felder: label, amount (REAL nullable = Freifeld), sort_order, is_active
+- `settings` hat zusätzlich: fee_offer (17.85), fee_full (30.00), fee_holder_surcharge (5.10)
+- `vehicle_types` — Fahrzeugtypen; Felder: number (TEXT UNIQUE), name (TEXT), sort_order (DEFAULT 0), is_active (DEFAULT 1); 21 Typen vorbelegt (PKW bis landw. Zugmaschine m. Anhänger)
+- `vehicle_type_location_priority` — Standort-spezifische Sortierung; Felder: vehicle_type_id (FK), location_id (FK), sort_order; UNIQUE(vehicle_type_id, location_id)
+- `cases` hat zusätzlich: vehicle_type_number (TEXT, Snapshot), vehicle_type_name (TEXT, Snapshot), violation_code (TEXT, Snapshot), violation_description (TEXT, Snapshot), violation_fee_override (REAL, Snapshot)
 
 ---
 

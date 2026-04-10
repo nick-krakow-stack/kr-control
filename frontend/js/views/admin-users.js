@@ -143,7 +143,7 @@ function renderTable(users = allUsers) {
   }
 
   el.innerHTML = `
-    <div class="overflow-x-auto">
+    <div class="hidden md:block overflow-x-auto">
       <table class="w-full">
         <thead>
           <tr class="bg-slate-50 border-b border-slate-100">
@@ -203,6 +203,27 @@ function renderTable(users = allUsers) {
           `).join("")}
         </tbody>
       </table>
+    </div>
+    <div class="md:hidden divide-y divide-slate-100">
+      ${users.map(u => `
+        <div class="p-4 flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <span class="font-medium text-slate-800">${u.username}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[u.role] || 'bg-slate-100 text-slate-600'}">${ROLE_LABELS[u.role] || u.role}</span>
+              ${!u.is_active ? '<span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Inaktiv</span>' : ''}
+            </div>
+            <div class="text-xs text-slate-400">${u.email}</div>
+            ${!u.email_verified ? '<div class="text-xs text-amber-600 mt-0.5">⏳ Einladung ausstehend</div>' : ''}
+            <div class="text-xs text-slate-400 mt-0.5">${u.location_ids?.length || 0} Standort${u.location_ids?.length !== 1 ? 'e' : ''}</div>
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            ${!u.email_verified ? `<button onclick="resendInvite(${u.id})" class="p-2 hover:bg-amber-50 rounded-lg text-amber-500 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></button>` : ''}
+            <button onclick="editUser(${u.id})" class="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+            <button onclick="deleteUser(${u.id}, '${u.username.replace(/'/g, "\\'")}')" class="p-2 hover:bg-red-50 rounded-lg text-slate-500 hover:text-red-500 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+          </div>
+        </div>
+      `).join('')}
     </div>
   `;
 }

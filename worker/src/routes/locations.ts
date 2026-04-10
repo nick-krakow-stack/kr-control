@@ -16,18 +16,19 @@ locations.get("/", async (c) => {
   const user = c.get("user");
   const accessible = await getAccessibleLocationIds(c.env.DB, user);
 
-  let query = "SELECT * FROM locations ORDER BY created_at DESC";
   let rows: Location[];
 
   if (accessible !== null) {
     if (accessible.length === 0) return c.json([]);
     const placeholders = accessible.map(() => "?").join(",");
     const result = await c.env.DB.prepare(
-      `SELECT * FROM locations WHERE id IN (${placeholders}) ORDER BY created_at DESC`
+      `SELECT locations.*, customers.name as customer_name FROM locations LEFT JOIN customers ON locations.customer_id = customers.id WHERE locations.id IN (${placeholders}) ORDER BY locations.created_at DESC`
     ).bind(...accessible).all<Location>();
     rows = result.results;
   } else {
-    const result = await c.env.DB.prepare(query).all<Location>();
+    const result = await c.env.DB.prepare(
+      "SELECT locations.*, customers.name as customer_name FROM locations LEFT JOIN customers ON locations.customer_id = customers.id ORDER BY locations.created_at DESC"
+    ).all<Location>();
     rows = result.results;
   }
 
@@ -47,8 +48,9 @@ locations.post("/", requireAdmin, async (c) => {
     data.fee_ticket ?? null, data.fee_letter ?? null
   ).run();
 
-  const loc = await c.env.DB.prepare("SELECT * FROM locations WHERE id = ?")
-    .bind(result.meta.last_row_id).first<Location>();
+  const loc = await c.env.DB.prepare(
+    "SELECT locations.*, customers.name as customer_name FROM locations LEFT JOIN customers ON locations.customer_id = customers.id WHERE locations.id = ?"
+  ).bind(result.meta.last_row_id).first<Location>();
   return c.json({ ...loc!, cases_count: 0 }, 201);
 });
 
@@ -59,8 +61,9 @@ locations.get("/:id", async (c) => {
   if (accessible !== null && !accessible.includes(id)) {
     return c.json({ detail: "Kein Zugriff auf diesen Standort" }, 403);
   }
-  const loc = await c.env.DB.prepare("SELECT * FROM locations WHERE id = ?")
-    .bind(id).first<Location>();
+  const loc = await c.env.DB.prepare(
+    "SELECT locations.*, customers.name as customer_name FROM locations LEFT JOIN customers ON locations.customer_id = customers.id WHERE locations.id = ?"
+  ).bind(id).first<Location>();
   if (!loc) return c.json({ detail: "Parkplatz nicht gefunden" }, 404);
   return c.json(await withCasesCount(c.env.DB, loc));
 });
@@ -75,8 +78,9 @@ locations.patch("/:id/fees", requireAdminOrBuchhaltung, async (c) => {
     "UPDATE locations SET fee_ticket=?, fee_letter=? WHERE id=?"
   ).bind(data.fee_ticket ?? null, data.fee_letter ?? null, id).run();
 
-  const updated = await c.env.DB.prepare("SELECT * FROM locations WHERE id = ?")
-    .bind(id).first<Location>();
+  const updated = await c.env.DB.prepare(
+    "SELECT locations.*, customers.name as customer_name FROM locations LEFT JOIN customers ON locations.customer_id = customers.id WHERE locations.id = ?"
+  ).bind(id).first<Location>();
   return c.json(await withCasesCount(c.env.DB, updated!));
 });
 
@@ -96,8 +100,9 @@ locations.put("/:id", requireAdmin, async (c) => {
     data.fee_ticket ?? null, data.fee_letter ?? null, id
   ).run();
 
-  const updated = await c.env.DB.prepare("SELECT * FROM locations WHERE id = ?")
-    .bind(id).first<Location>();
+  const updated = await c.env.DB.prepare(
+    "SELECT locations.*, customers.name as customer_name FROM locations LEFT JOIN customers ON locations.customer_id = customers.id WHERE locations.id = ?"
+  ).bind(id).first<Location>();
   return c.json(await withCasesCount(c.env.DB, updated!));
 });
 

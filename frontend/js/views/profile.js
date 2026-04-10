@@ -26,6 +26,76 @@ export function renderProfile() {
         </div>
       </div>
 
+      <!-- Persönliche Daten -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-slate-800">Persönliche Daten</h2>
+          <button id="btnEditProfile" class="text-sm text-blue-600 hover:text-blue-700 font-medium">Bearbeiten</button>
+        </div>
+        <!-- Display mode (default) -->
+        <div id="profileDisplay" class="space-y-3 text-sm">
+          <!-- populated by initProfile() -->
+        </div>
+        <!-- Edit mode (hidden by default) -->
+        <form id="profileForm" class="hidden space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Vorname</label>
+              <input id="pFirstName" type="text" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Nachname</label>
+              <input id="pLastName" type="text" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Straße + Hausnummer</label>
+            <input id="pStreet" type="text" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+          </div>
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">PLZ</label>
+              <input id="pZip" type="text" inputmode="numeric" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+            </div>
+            <div class="col-span-2">
+              <label class="block text-xs font-medium text-slate-600 mb-1">Stadt</label>
+              <input id="pCity" type="text" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-slate-100">
+            <p class="text-xs text-slate-400 mb-3">Bankverbindung (für Abrechnung)</p>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Kontoinhaber</label>
+                <input id="pBankName" type="text" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">IBAN</label>
+                <input id="pIban" type="text" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="DE00 0000 0000 0000 0000 00"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">BIC</label>
+                <input id="pBic" type="text" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              </div>
+            </div>
+          </div>
+          <div id="profileError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl"></div>
+          <div class="flex gap-3">
+            <button type="button" id="btnCancelProfile" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors">Abbrechen</button>
+            <button type="submit" id="btnSaveProfile" class="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors">Speichern</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Stundenlohn (nur Mitarbeiter) -->
+      <div id="hourlyRateCard" class="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-6 hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-slate-600">Stundenlohn</span>
+          <span id="hourlyRateValue" class="text-lg font-bold text-slate-800">–</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">Wird vom Admin festgelegt</p>
+      </div>
+
       <!-- Passwort ändern -->
       <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
         <h2 class="font-semibold text-slate-800 mb-4">Passwort ändern</h2>
@@ -67,7 +137,28 @@ export function renderProfile() {
   `;
 }
 
+function renderProfileDisplay(profile) {
+  const field = (label, value) => `
+    <div class="flex items-center justify-between">
+      <span class="text-slate-500">${label}</span>
+      <span class="font-medium text-slate-800">${value || "–"}</span>
+    </div>
+  `;
+  const address = profile.street
+    ? `${profile.street}${profile.zip || profile.city ? ", " + [profile.zip, profile.city].filter(Boolean).join(" ") : ""}`
+    : null;
+  return `
+    ${field("Vorname", profile.first_name)}
+    ${field("Nachname", profile.last_name)}
+    ${field("Adresse", address)}
+    ${field("Kontoinhaber", profile.bank_name)}
+    ${field("IBAN", profile.iban)}
+    ${field("BIC", profile.bic)}
+  `;
+}
+
 export function initProfile() {
+  // Password change form
   const form = document.getElementById("changePasswordForm");
   const errorEl = document.getElementById("pwError");
   const successEl = document.getElementById("pwSuccess");
@@ -106,6 +197,98 @@ export function initProfile() {
     } finally {
       btn.disabled = false;
       btn.textContent = "Passwort ändern";
+    }
+  });
+
+  // Personal data profile section
+  let profileData = null;
+
+  const profileDisplay = document.getElementById("profileDisplay");
+  const profileForm = document.getElementById("profileForm");
+  const profileError = document.getElementById("profileError");
+  const btnEdit = document.getElementById("btnEditProfile");
+  const btnCancel = document.getElementById("btnCancelProfile");
+  const hourlyRateCard = document.getElementById("hourlyRateCard");
+  const hourlyRateValue = document.getElementById("hourlyRateValue");
+
+  function showDisplay() {
+    profileDisplay.classList.remove("hidden");
+    profileForm.classList.add("hidden");
+  }
+
+  function showForm() {
+    profileDisplay.classList.add("hidden");
+    profileForm.classList.remove("hidden");
+  }
+
+  function fillForm(profile) {
+    document.getElementById("pFirstName").value = profile.first_name || "";
+    document.getElementById("pLastName").value = profile.last_name || "";
+    document.getElementById("pStreet").value = profile.street || "";
+    document.getElementById("pZip").value = profile.zip || "";
+    document.getElementById("pCity").value = profile.city || "";
+    document.getElementById("pBankName").value = profile.bank_name || "";
+    document.getElementById("pIban").value = profile.iban || "";
+    document.getElementById("pBic").value = profile.bic || "";
+  }
+
+  // Load profile on init
+  api.getProfile().then((profile) => {
+    profileData = profile;
+    profileDisplay.innerHTML = renderProfileDisplay(profile);
+
+    if (profile.role === "mitarbeiter" && profile.hourly_rate != null) {
+      hourlyRateCard.classList.remove("hidden");
+      hourlyRateValue.textContent = `${profile.hourly_rate.toFixed(2)} €/h`;
+    }
+  }).catch((err) => {
+    profileDisplay.innerHTML = `<div class="text-red-500 text-sm">Fehler: ${err.message}</div>`;
+  });
+
+  btnEdit.addEventListener("click", () => {
+    if (profileData) fillForm(profileData);
+    profileError.classList.add("hidden");
+    showForm();
+  });
+
+  btnCancel.addEventListener("click", () => {
+    showDisplay();
+  });
+
+  profileForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    profileError.classList.add("hidden");
+
+    const saveBtn = document.getElementById("btnSaveProfile");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Speichern...";
+
+    try {
+      const updated = await api.updateProfile({
+        first_name: document.getElementById("pFirstName").value.trim() || null,
+        last_name: document.getElementById("pLastName").value.trim() || null,
+        street: document.getElementById("pStreet").value.trim() || null,
+        zip: document.getElementById("pZip").value.trim() || null,
+        city: document.getElementById("pCity").value.trim() || null,
+        iban: document.getElementById("pIban").value.trim() || null,
+        bic: document.getElementById("pBic").value.trim() || null,
+        bank_name: document.getElementById("pBankName").value.trim() || null,
+      });
+      profileData = updated;
+      profileDisplay.innerHTML = renderProfileDisplay(updated);
+
+      if (updated.role === "mitarbeiter" && updated.hourly_rate != null) {
+        hourlyRateCard.classList.remove("hidden");
+        hourlyRateValue.textContent = `${updated.hourly_rate.toFixed(2)} €/h`;
+      }
+
+      showDisplay();
+    } catch (err) {
+      profileError.textContent = err.message || "Fehler beim Speichern.";
+      profileError.classList.remove("hidden");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Speichern";
     }
   });
 }

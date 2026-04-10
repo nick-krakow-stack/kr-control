@@ -9,6 +9,13 @@ import caseRoutes from "./routes/cases";
 import statsRoutes from "./routes/stats";
 import settingsRoutes from "./routes/settings";
 import caseEventRoutes from "./routes/case-events";
+import { shiftsRouter } from "./routes/shifts";
+import { customersRouter } from "./routes/customers";
+import { whitelistRouter } from "./routes/whitelist";
+import { workTimesRouter } from "./routes/work-times";
+import violationsRouter from "./routes/violations";
+import caseFeesRouter from "./routes/case-fees";
+import vehicleTypesRouter from "./routes/vehicle-types";
 
 const app = new Hono<{ Bindings: Env; Variables: { user: User } }>();
 
@@ -46,6 +53,13 @@ app.route("/api/cases", caseRoutes);
 app.route("/api/stats", statsRoutes);
 app.route("/api/settings", settingsRoutes);
 app.route("/api/case-events", caseEventRoutes);
+app.route("/api/shifts", shiftsRouter);
+app.route("/api/customers", customersRouter);
+app.route("/api/whitelist", whitelistRouter);
+app.route("/api/work-times", workTimesRouter);
+app.route("/api/violations", violationsRouter);
+app.route("/api/case-fees", caseFeesRouter);
+app.route("/api/vehicle-types", vehicleTypesRouter);
 
 // Health check
 app.get("/api/health", (c) => c.json({ status: "ok", service: "KR Control API", version: "3.0.0" }));
@@ -73,10 +87,19 @@ async function deleteImagesForCase(db: D1Database, uploads: R2Bucket, caseId: nu
 }
 
 async function anonymizeCases(db: D1Database, uploads: R2Bucket) {
+  const settingsRows = await db.prepare(
+    "SELECT key, value FROM settings WHERE key IN ('anon_days_new', 'anon_days_closed', 'anon_days_paid')"
+  ).all<{ key: string; value: string }>();
+  const sm = Object.fromEntries(settingsRows.results.map((r) => [r.key, Number(r.value)]));
+  const daysNew = sm["anon_days_new"] || 30;
+  const daysClosed = sm["anon_days_closed"] || 7;
+  const daysPaid = sm["anon_days_paid"] || 30;
+
   const now = new Date();
   const nowIso = now.toISOString();
-  const cutoff30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const cutoff7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const cutoff30 = new Date(now.getTime() - daysNew * 24 * 60 * 60 * 1000).toISOString();
+  const cutoff7 = new Date(now.getTime() - daysClosed * 24 * 60 * 60 * 1000).toISOString();
+  const cutoffPaid = new Date(now.getTime() - daysPaid * 24 * 60 * 60 * 1000).toISOString();
 
   // 1. Status 'new' seit 30+ Tagen → geschlossen (abandoned) + sofort anonymisieren
   const abandoned = await db.prepare(
@@ -103,10 +126,10 @@ async function anonymizeCases(db: D1Database, uploads: R2Bucket) {
     await deleteImagesForCase(db, uploads, row.id);
   }
 
-  // 3. Status 'paid' seit 30+ Tagen → anonymisieren
+  // 3. Status 'paid' seit X Tagen → anonymisieren
   const paid = await db.prepare(
     "SELECT id FROM cases WHERE status = 'paid' AND paid_at <= ? AND anonymized_at IS NULL"
-  ).bind(cutoff30).all<{ id: number }>();
+  ).bind(cutoffPaid).all<{ id: number }>();
   for (const row of paid.results) {
     await db.prepare(
       `UPDATE cases SET license_plate='XX XX 111', owner_first_name='Falsch', owner_last_name='Parker',

@@ -14,13 +14,6 @@ export async function renderLocations() {
         </div>
         ${admin ? `
           <div class="flex gap-2">
-            <button id="btnSettings"
-              class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2.5 rounded-xl transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-              Einstellungen
-            </button>
             <button id="btnNewLocation"
               class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,14 +89,6 @@ export async function renderLocations() {
                   <label class="block text-sm font-medium text-slate-700 mb-1.5">Notizen</label>
                   <textarea id="locNotes" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none" rows="3" placeholder="Interne Notizen..."></textarea>
                 </div>
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Ticket-Gebühr (€)</label>
-                  <input id="locFeeTicket" type="number" min="0" step="0.01" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="Standard verwenden"/>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Brief-Gebühr (€)</label>
-                  <input id="locFeeLetter" type="number" min="0" step="0.01" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="Standard verwenden"/>
-                </div>
               </div>
               <div id="locationFormError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl"></div>
               <div class="flex gap-3 pt-2">
@@ -121,40 +106,41 @@ export async function renderLocations() {
         </div>
       </div>
 
-      <div id="settingsModal" class="fixed inset-0 z-50 hidden">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="settingsModalBackdrop"></div>
+      <!-- Violation Priority Modal (nur Admin) -->
+      <div id="violationPriorityModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="violationPriorityBackdrop"></div>
         <div class="absolute inset-0 flex items-center justify-center p-4">
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-              <h3 class="text-lg font-semibold text-slate-800">Globale Gebühren</h3>
-              <button id="settingsModalClose" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+              <div>
+                <h3 id="violationPriorityTitle" class="text-lg font-semibold text-slate-800">Tatbestand-Priorisierung</h3>
+                <p id="violationPrioritySubtitle" class="text-sm text-slate-500 mt-0.5"></p>
+              </div>
+              <button id="violationPriorityClose" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
                 <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
               </button>
             </div>
-            <form id="settingsForm" class="p-6 space-y-4">
-              <p class="text-sm text-slate-500">Diese Standardwerte gelten, wenn für einen Standort keine eigene Gebühr festgelegt wurde.</p>
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">Standard Ticket-Gebühr (€)</label>
-                <input id="settingsFeeTicket" type="number" min="0" step="0.01" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="z.B. 35"/>
+            <div class="p-6">
+              <p class="text-sm text-slate-500 mb-4">
+                Ziehe die Tatbestände in die gewünschte Reihenfolge. Die ersten 5 werden beim Erfassen als Schnellauswahl angezeigt.
+              </p>
+              <div id="violationPriorityList" class="space-y-2">
+                <!-- filled dynamically -->
               </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">Standard Brief-Gebühr (€)</label>
-                <input id="settingsFeeLetter" type="number" min="0" step="0.01" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="z.B. 15"/>
-              </div>
-              <div id="settingsFormMsg" class="hidden text-sm text-green-600 font-medium">Einstellungen gespeichert ✓</div>
-              <div class="flex gap-3 pt-2">
-                <button type="button" id="btnSettingsCancel"
-                  class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors">
-                  Abbrechen
+              <div id="violationPriorityMsg" class="hidden mt-3 text-sm text-green-600 font-medium">Gespeichert ✓</div>
+              <div class="flex gap-3 pt-4 mt-2 border-t border-slate-100">
+                <button id="btnResetPriority"
+                  class="px-4 py-2.5 border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors text-sm">
+                  Globale Reihenfolge
                 </button>
-                <button type="submit" id="btnSettingsSave"
-                  class="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors">
+                <button id="btnSavePriority"
+                  class="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-sm">
                   Speichern
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       </div>
@@ -238,12 +224,26 @@ function renderGrid(locs = allLocations) {
                   d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
             </button>
+            <button onclick="openViolationPriority(${loc.id}, '${loc.name.replace(/'/g, "\\'")}')"
+              class="p-1.5 hover:bg-orange-50 rounded-lg transition-colors text-slate-500 hover:text-orange-500"
+              title="Tatbestand-Priorisierung">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"/>
+              </svg>
+            </button>
           </div>
         ` : ""}
       </div>
 
       ${loc.address ? `<p class="text-sm text-slate-500 mb-3 truncate">${loc.address}</p>` : ""}
       ${loc.client_name ? `<p class="text-xs text-slate-400 mb-3">Kunde: ${loc.client_name}</p>` : ""}
+
+      <div class="mb-3">
+        <a href="#/cases/new?location_id=${loc.id}"
+          class="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium whitespace-nowrap">
+          + Neuer Fall
+        </a>
+      </div>
 
       <div class="flex gap-4 pt-3 border-t border-slate-50">
         <div class="text-center">
@@ -260,18 +260,6 @@ function renderGrid(locs = allLocations) {
           <div class="text-center">
             <div class="text-lg font-bold text-slate-800">${loc.max_duration_minutes >= 60 ? (loc.max_duration_minutes / 60) + "h" : loc.max_duration_minutes + "min"}</div>
             <div class="text-xs text-slate-400">Max. Parkdauer</div>
-          </div>
-        ` : ""}
-        ${loc.fee_ticket ? `
-          <div class="text-center">
-            <div class="text-lg font-bold text-slate-800">${loc.fee_ticket}€</div>
-            <div class="text-xs text-slate-400">Ticket</div>
-          </div>
-        ` : ""}
-        ${loc.fee_letter ? `
-          <div class="text-center">
-            <div class="text-lg font-bold text-slate-800">${loc.fee_letter}€</div>
-            <div class="text-xs text-slate-400">Brief</div>
           </div>
         ` : ""}
       </div>
@@ -314,8 +302,6 @@ function setupModal() {
       client_name: document.getElementById("locClient").value.trim() || null,
       contract_type: document.getElementById("locContract").value,
       notes: document.getElementById("locNotes").value.trim() || null,
-      fee_ticket: parseFloat(document.getElementById("locFeeTicket").value) || null,
-      fee_letter: parseFloat(document.getElementById("locFeeLetter").value) || null,
     };
 
     try {
@@ -347,8 +333,6 @@ function setupModal() {
     document.getElementById("locClient").value = loc.client_name || "";
     document.getElementById("locContract").value = loc.contract_type || "standard";
     document.getElementById("locNotes").value = loc.notes || "";
-    document.getElementById("locFeeTicket").value = loc.fee_ticket ?? "";
-    document.getElementById("locFeeLetter").value = loc.fee_letter ?? "";
     open();
   };
 
@@ -362,41 +346,41 @@ function setupModal() {
     }
   };
 
-  // Settings modal
-  const settingsModal = document.getElementById("settingsModal");
-  const settingsForm = document.getElementById("settingsForm");
-  const settingsMsg = document.getElementById("settingsFormMsg");
+  // Violation Priority Modal
+  let violationPriorityLocationId = null;
+  let violationPriorityOrder = [];
 
-  const openSettings = async () => {
-    settingsModal.classList.remove("hidden");
+  const closePriority = () => {
+    document.getElementById("violationPriorityModal").classList.add("hidden");
+  };
+
+  document.getElementById("violationPriorityClose").addEventListener("click", closePriority);
+  document.getElementById("violationPriorityBackdrop").addEventListener("click", closePriority);
+
+  document.getElementById("btnResetPriority").addEventListener("click", async () => {
+    const btn = document.getElementById("btnResetPriority");
+    btn.disabled = true;
     try {
-      const s = await api.getSettings();
-      document.getElementById("settingsFeeTicket").value = s.fee_ticket_default ?? "";
-      document.getElementById("settingsFeeLetter").value = s.fee_letter_default ?? "";
-    } catch {}
-  };
-  const closeSettings = () => {
-    settingsModal.classList.add("hidden");
-    settingsMsg.classList.add("hidden");
-  };
+      await api.violations.setLocationPriority(violationPriorityLocationId, []);
+      const msg = document.getElementById("violationPriorityMsg");
+      msg.classList.remove("hidden");
+      setTimeout(() => msg.classList.add("hidden"), 2000);
+    } catch (err) {
+      alert("Fehler: " + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
-  document.getElementById("btnSettings").addEventListener("click", openSettings);
-  document.getElementById("settingsModalClose").addEventListener("click", closeSettings);
-  document.getElementById("btnSettingsCancel").addEventListener("click", closeSettings);
-  document.getElementById("settingsModalBackdrop").addEventListener("click", closeSettings);
-
-  settingsForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById("btnSettingsSave");
+  document.getElementById("btnSavePriority").addEventListener("click", async () => {
+    const btn = document.getElementById("btnSavePriority");
     btn.disabled = true;
     btn.textContent = "Speichern...";
     try {
-      await api.updateSettings({
-        fee_ticket_default: parseFloat(document.getElementById("settingsFeeTicket").value) || 35,
-        fee_letter_default: parseFloat(document.getElementById("settingsFeeLetter").value) || 15,
-      });
-      settingsMsg.classList.remove("hidden");
-      setTimeout(() => settingsMsg.classList.add("hidden"), 2000);
+      await api.violations.setLocationPriority(violationPriorityLocationId, violationPriorityOrder.map(v => v.id));
+      const msg = document.getElementById("violationPriorityMsg");
+      msg.classList.remove("hidden");
+      setTimeout(() => msg.classList.add("hidden"), 2000);
     } catch (err) {
       alert("Fehler: " + err.message);
     } finally {
@@ -404,4 +388,76 @@ function setupModal() {
       btn.textContent = "Speichern";
     }
   });
+
+  function renderViolationPriorityList() {
+    const listEl = document.getElementById("violationPriorityList");
+    listEl.innerHTML = violationPriorityOrder.map((v, i) => `
+      <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100" data-violation-id="${v.id}">
+        <span class="text-xs font-bold text-slate-400 w-5 text-center">${i + 1}</span>
+        <div class="flex-1 min-w-0">
+          <span class="text-xs font-bold text-blue-600">${v.code}</span>
+          <span class="text-sm text-slate-700 ml-1">${v.description.length > 40 ? v.description.slice(0, 40) + '…' : v.description}</span>
+        </div>
+        <div class="flex flex-col gap-0.5">
+          <button type="button" onclick="violationMoveUp(${i})" ${i === 0 ? "disabled" : ""}
+            class="p-1 hover:bg-white rounded text-slate-400 hover:text-slate-700 transition-colors disabled:opacity-30">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+            </svg>
+          </button>
+          <button type="button" onclick="violationMoveDown(${i})" ${i === violationPriorityOrder.length - 1 ? "disabled" : ""}
+            class="p-1 hover:bg-white rounded text-slate-400 hover:text-slate-700 transition-colors disabled:opacity-30">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  window.violationMoveUp = (i) => {
+    if (i === 0) return;
+    [violationPriorityOrder[i - 1], violationPriorityOrder[i]] = [violationPriorityOrder[i], violationPriorityOrder[i - 1]];
+    renderViolationPriorityList();
+  };
+
+  window.violationMoveDown = (i) => {
+    if (i >= violationPriorityOrder.length - 1) return;
+    [violationPriorityOrder[i + 1], violationPriorityOrder[i]] = [violationPriorityOrder[i], violationPriorityOrder[i + 1]];
+    renderViolationPriorityList();
+  };
+
+  window.openViolationPriority = async (locationId, locationName) => {
+    violationPriorityLocationId = locationId;
+    document.getElementById("violationPrioritySubtitle").textContent = locationName;
+    document.getElementById("violationPriorityModal").classList.remove("hidden");
+    document.getElementById("violationPriorityMsg").classList.add("hidden");
+
+    const listEl = document.getElementById("violationPriorityList");
+    listEl.innerHTML = `<p class="text-xs text-slate-400">Wird geladen...</p>`;
+
+    try {
+      const [allViolations, customPriority] = await Promise.all([
+        api.violations.list(),
+        api.violations.getLocationPriority(locationId),
+      ]);
+
+      if (customPriority.length > 0) {
+        const priorityMap = new Map(customPriority.map(p => [p.violation_id, p.sort_order]));
+        const inPriority = customPriority
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map(p => allViolations.find(v => v.id === p.violation_id))
+          .filter(Boolean);
+        const rest = allViolations.filter(v => !priorityMap.has(v.id));
+        violationPriorityOrder = [...inPriority, ...rest];
+      } else {
+        violationPriorityOrder = [...allViolations];
+      }
+
+      renderViolationPriorityList();
+    } catch (err) {
+      listEl.innerHTML = `<p class="text-xs text-red-500">Fehler: ${err.message}</p>`;
+    }
+  };
 }

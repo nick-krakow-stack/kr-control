@@ -4,6 +4,8 @@ import { openTicket } from "../ticket.js";
 
 let selectedFiles = [];
 let toastTimeout = null;
+let currentViolations = [];
+let currentVehicleTypes = [];
 
 export async function renderCaseNew() {
   const locations = await api.getLocations();
@@ -150,7 +152,43 @@ export async function renderCaseNew() {
           ` : ""}
         </div>
 
-        <!-- ③ Datum & Uhrzeit -->
+        <!-- ③ Tatbestand (Pflichtfeld) -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100" id="violationSection">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-7 h-7 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Tatbestand</span>
+            <span class="ml-auto text-[10px] bg-red-50 text-red-600 font-medium px-2 py-0.5 rounded-full">Pflichtfeld</span>
+          </div>
+          <div id="violationContent">
+            <p class="text-xs text-slate-400">Bitte zuerst einen Standort auswählen.</p>
+          </div>
+          <input type="hidden" id="caseViolation"/>
+        </div>
+
+        <!-- ④ Fahrzeugtyp (Pflichtfeld) -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100" id="vehicleTypeSection">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-7 h-7 bg-sky-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M7 20h10M7 20a2 2 0 01-2-2V8a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2M7 20H5a2 2 0 01-2-2v-1M17 20h2a2 2 0 002-2v-1"/>
+              </svg>
+            </div>
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Fahrzeugtyp</span>
+            <span class="ml-auto text-[10px] bg-red-50 text-red-600 font-medium px-2 py-0.5 rounded-full">Pflichtfeld</span>
+          </div>
+          <div id="vehicleTypeContent">
+            <p class="text-xs text-slate-400">Bitte zuerst einen Standort auswählen.</p>
+          </div>
+          <input type="hidden" id="caseVehicleType"/>
+        </div>
+
+        <!-- ⑤ Datum & Uhrzeit -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <div class="flex items-center gap-2 mb-4">
             <div class="w-7 h-7 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -174,7 +212,7 @@ export async function renderCaseNew() {
           </div>
         </div>
 
-        <!-- ④ Falltyp -->
+        <!-- ⑤ Falltyp -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <div class="flex items-center gap-2 mb-4">
             <div class="w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -214,7 +252,7 @@ export async function renderCaseNew() {
           </div>
         </div>
 
-        <!-- ⑤ Fotos -->
+        <!-- ⑥ Fotos -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <div class="flex items-center gap-2 mb-4">
             <div class="w-7 h-7 bg-rose-500 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -264,7 +302,7 @@ export async function renderCaseNew() {
           <div id="imagePreview" class="grid grid-cols-3 gap-2 mt-3 empty:hidden"></div>
         </div>
 
-        <!-- ⑥ Notizen -->
+        <!-- ⑦ Notizen -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <div class="flex items-center gap-2 mb-4">
             <div class="w-7 h-7 bg-slate-400 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -315,6 +353,29 @@ export async function renderCaseNew() {
 export function initCaseNew() {
   selectedFiles = [];
 
+  // ── URL-Parameter (shift mode) ────────────────────────────────
+  const hashParts = window.location.hash.split('?');
+  const params = new URLSearchParams(hashParts[1] || '');
+  const preLocationId = params.get('location_id');
+  const shiftId = params.get('shift_id');
+
+  // Show "← Zur Kontrolle" link if in shift mode
+  if (shiftId) {
+    const headerDiv = document.querySelector('#caseForm')?.closest('.p-4, .p-6, [class*="p-"]');
+    const headerEl = document.querySelector('.flex.items-center.gap-3.mb-6');
+    if (headerEl) {
+      const kontrolleLink = document.createElement('a');
+      kontrolleLink.href = '#/kontrolle';
+      kontrolleLink.className = 'text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 mb-3';
+      kontrolleLink.innerHTML = `
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Zur Kontrolle`;
+      headerEl.parentNode.insertBefore(kontrolleLink, headerEl);
+    }
+  }
+
   // ── Kennzeichen: 3 Felder mit Auto-Advance ────────────────────
   const plateOrt   = document.getElementById("plateOrt");
   const plateBuchst = document.getElementById("plateBuchst");
@@ -349,6 +410,7 @@ export function initCaseNew() {
   if (locationCards) {
     locationCards.querySelectorAll(".loc-card").forEach((card) => {
       card.addEventListener("click", () => {
+        if (preLocationId) return; // locked in shift mode
         locationCards.querySelectorAll(".loc-card").forEach((c) => {
           c.classList.remove("border-blue-500", "bg-blue-50");
           c.classList.add("border-slate-200");
@@ -368,8 +430,50 @@ export function initCaseNew() {
         card.querySelector(".loc-label").classList.add("text-blue-700");
         card.querySelector(".loc-label").classList.remove("text-slate-700");
         document.getElementById("caseLocation").value = card.dataset.locId;
+        loadViolationsForLocation(card.dataset.locId);
       });
     });
+
+    // Pre-select location if preLocationId is set
+    if (preLocationId) {
+      const preCard = locationCards.querySelector(`.loc-card[data-loc-id="${preLocationId}"]`);
+      if (preCard) {
+        preCard.classList.add("border-blue-500", "bg-blue-50");
+        preCard.classList.remove("border-slate-200");
+        preCard.querySelector(".loc-icon")?.classList.add("bg-blue-100");
+        preCard.querySelector(".loc-icon")?.classList.remove("bg-slate-100");
+        preCard.querySelector(".loc-pin")?.classList.add("text-blue-600");
+        preCard.querySelector(".loc-pin")?.classList.remove("text-slate-400");
+        preCard.querySelector(".loc-label")?.classList.add("text-blue-700");
+        preCard.querySelector(".loc-label")?.classList.remove("text-slate-700");
+        document.getElementById("caseLocation").value = preLocationId;
+        // Disable all cards visually
+        locationCards.querySelectorAll(".loc-card").forEach((c) => {
+          c.style.pointerEvents = "none";
+          c.style.opacity = c === preCard ? "1" : "0.4";
+        });
+      }
+    }
+  }
+
+  // Pre-select location dropdown if using select element
+  if (preLocationId) {
+    const locSelect = document.getElementById("caseLocation");
+    if (locSelect && locSelect.tagName === "SELECT") {
+      locSelect.value = preLocationId;
+      locSelect.disabled = true;
+      locSelect.addEventListener("change", (e) => {
+        if (e.target.value) loadViolationsForLocation(e.target.value);
+      });
+    }
+    loadViolationsForLocation(preLocationId);
+  } else {
+    const locSelect = document.getElementById("caseLocation");
+    if (locSelect && locSelect.tagName === "SELECT") {
+      locSelect.addEventListener("change", (e) => {
+        if (e.target.value) loadViolationsForLocation(e.target.value);
+      });
+    }
   }
 
   // ── Falltyp-Karten ────────────────────────────────────────────
@@ -428,7 +532,7 @@ export function initCaseNew() {
   });
 
   // ── Submit ────────────────────────────────────────────────────
-  document.getElementById("caseForm").addEventListener("submit", submitCase);
+  document.getElementById("caseForm").addEventListener("submit", (e) => submitCase(e, preLocationId, shiftId));
 }
 
 function addFiles(files) {
@@ -516,6 +620,14 @@ function resetForm(createdId) {
     firstRadio.closest(".case-type-card").classList.remove("border-slate-200");
   }
 
+  // Tatbestand leeren
+  document.getElementById("caseViolation").value = "";
+  renderViolationPicker();
+
+  // Fahrzeugtyp zurücksetzen (Default PKW)
+  document.getElementById("caseVehicleType").value = "";
+  renderVehicleTypePicker();
+
   // Notizen leeren
   document.getElementById("caseNotes").value = "";
 
@@ -548,7 +660,181 @@ function resetForm(createdId) {
   }, 4000);
 }
 
-async function submitCase(e) {
+async function loadViolationsForLocation(locationId) {
+  const content = document.getElementById("violationContent");
+  if (!content) return;
+  content.innerHTML = `<p class="text-xs text-slate-400">Wird geladen...</p>`;
+  try {
+    currentViolations = await api.violations.list({ location_id: locationId });
+    renderViolationPicker();
+  } catch {
+    content.innerHTML = `<p class="text-xs text-red-500">Fehler beim Laden der Tatbestände.</p>`;
+  }
+  // Also load vehicle types for this location
+  await loadVehicleTypesForLocation(locationId);
+}
+
+function renderViolationPicker() {
+  const content = document.getElementById("violationContent");
+  if (!content) return;
+  const selected = document.getElementById("caseViolation").value;
+  const selectedV = currentViolations.find(v => String(v.id) === selected);
+
+  const topFive = currentViolations.slice(0, 5);
+
+  content.innerHTML = `
+    ${selectedV ? `
+      <div class="flex items-center gap-2 mb-3 p-3 bg-green-50 border-2 border-green-400 rounded-xl">
+        <div class="flex-1 min-w-0">
+          <span class="text-xs font-bold text-green-700">${selectedV.code}</span>
+          <p class="text-sm text-green-800 font-medium truncate">${selectedV.description}</p>
+        </div>
+        <button type="button" id="btnClearViolation" class="text-green-600 hover:text-green-800 p-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    ` : `
+      <div class="flex flex-wrap gap-2 mb-3">
+        ${topFive.map(v => `
+          <button type="button" data-vid="${v.id}"
+            class="violation-chip text-xs px-3 py-1.5 bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-700 rounded-full font-medium transition-colors border border-slate-200 hover:border-blue-300">
+            <span class="font-bold">${v.code}</span> · ${v.description.length > 25 ? v.description.slice(0,25)+'…' : v.description}
+          </button>
+        `).join("")}
+      </div>
+      <div class="relative">
+        <input id="violationSearch" type="text" placeholder="Kennziffer oder Beschreibung suchen..."
+          class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white"/>
+        <div id="violationSearchResults" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 overflow-hidden"></div>
+      </div>
+    `}
+  `;
+
+  content.querySelectorAll(".violation-chip").forEach(btn => {
+    btn.addEventListener("click", () => selectViolation(Number(btn.dataset.vid)));
+  });
+
+  const clearBtn = document.getElementById("btnClearViolation");
+  if (clearBtn) clearBtn.addEventListener("click", () => {
+    document.getElementById("caseViolation").value = "";
+    renderViolationPicker();
+  });
+
+  const searchInput = document.getElementById("violationSearch");
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      const q = searchInput.value.trim().toLowerCase();
+      const resultsEl = document.getElementById("violationSearchResults");
+      if (!q) { resultsEl.classList.add("hidden"); return; }
+      const matches = currentViolations.filter(v =>
+        v.code.toLowerCase().includes(q) || v.description.toLowerCase().includes(q)
+      ).slice(0, 5);
+      if (!matches.length) { resultsEl.classList.add("hidden"); return; }
+      resultsEl.innerHTML = matches.map(v => `
+        <button type="button" data-vid="${v.id}"
+          class="violation-result w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0">
+          <span class="text-xs font-bold text-blue-600">${v.code}</span>
+          <span class="text-sm text-slate-700 ml-2">${v.description}</span>
+        </button>
+      `).join("");
+      resultsEl.classList.remove("hidden");
+      resultsEl.querySelectorAll(".violation-result").forEach(btn => {
+        btn.addEventListener("click", () => {
+          selectViolation(Number(btn.dataset.vid));
+          searchInput.value = "";
+          resultsEl.classList.add("hidden");
+        });
+      });
+    });
+    document.addEventListener("click", (e) => {
+      if (!searchInput.contains(e.target) && !document.getElementById("violationSearchResults")?.contains(e.target)) {
+        document.getElementById("violationSearchResults")?.classList.add("hidden");
+      }
+    }, { once: false });
+  }
+}
+
+function selectViolation(id) {
+  document.getElementById("caseViolation").value = id;
+  renderViolationPicker();
+}
+
+async function loadVehicleTypesForLocation(locationId) {
+  const content = document.getElementById("vehicleTypeContent");
+  if (!content) return;
+  content.innerHTML = `<p class="text-xs text-slate-400">Wird geladen...</p>`;
+  try {
+    currentVehicleTypes = await api.vehicleTypes.list(locationId);
+    renderVehicleTypePicker();
+  } catch {
+    content.innerHTML = `<p class="text-xs text-red-500">Fehler beim Laden der Fahrzeugtypen.</p>`;
+  }
+}
+
+function renderVehicleTypePicker() {
+  const content = document.getElementById("vehicleTypeContent");
+  if (!content) return;
+  if (!currentVehicleTypes.length) {
+    content.innerHTML = `<p class="text-xs text-slate-400">Keine Fahrzeugtypen verfügbar.</p>`;
+    return;
+  }
+
+  // Default to PKW (number === "1") or first in list
+  const selectedId = document.getElementById("caseVehicleType").value;
+  if (!selectedId) {
+    const defaultType = currentVehicleTypes.find(vt => vt.number === "1") || currentVehicleTypes[0];
+    if (defaultType) {
+      document.getElementById("caseVehicleType").value = defaultType.id;
+    }
+  }
+
+  const currentSelectedId = document.getElementById("caseVehicleType").value;
+
+  content.innerHTML = `
+    <select id="vehicleTypeSelect"
+      class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 transition bg-white text-sm">
+      ${currentVehicleTypes.map(vt => `
+        <option value="${vt.id}" ${String(vt.id) === String(currentSelectedId) ? "selected" : ""}>
+          [${vt.number}] ${vt.name}
+        </option>
+      `).join("")}
+    </select>
+  `;
+
+  document.getElementById("vehicleTypeSelect").addEventListener("change", (e) => {
+    document.getElementById("caseVehicleType").value = e.target.value;
+  });
+}
+
+function showShiftToast(msg) {
+  const toast = document.getElementById("successToast");
+  if (toast) {
+    const span = toast.querySelector("span");
+    if (span) span.textContent = msg;
+    toast.classList.remove("hidden");
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => { toast.classList.add("hidden"); toastTimeout = null; }, 3000);
+  }
+}
+
+function resetFormShift() {
+  document.getElementById("plateOrt").value = "";
+  document.getElementById("plateBuchst").value = "";
+  document.getElementById("plateNr").value = "";
+  document.getElementById("caseViolation").value = "";
+  renderViolationPicker();
+  document.getElementById("caseVehicleType").value = "";
+  renderVehicleTypePicker();
+  selectedFiles = [];
+  renderPreview();
+  const btn = document.getElementById("btnSubmitCase");
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Fall melden`;
+  }
+}
+
+async function submitCase(e, preLocationId = null, shiftId = null) {
   e.preventDefault();
   const errorEl = document.getElementById("caseFormError");
   const btn = document.getElementById("btnSubmitCase");
@@ -571,6 +857,22 @@ async function submitCase(e) {
     return;
   }
 
+  const vehicleTypeId = document.getElementById("caseVehicleType")?.value;
+  if (!vehicleTypeId) {
+    errorEl.textContent = "Bitte einen Fahrzeugtyp auswählen.";
+    errorEl.classList.remove("hidden");
+    errorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
+  const violationId = document.getElementById("caseViolation")?.value;
+  if (!violationId) {
+    errorEl.textContent = "Bitte einen Tatbestand auswählen.";
+    errorEl.classList.remove("hidden");
+    errorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
   btn.disabled = true;
   btn.innerHTML = `
     <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -586,11 +888,34 @@ async function submitCase(e) {
     formData.append("reported_at", new Date(`${dateVal}T${timeVal}`).toISOString());
     formData.append("case_type", caseType);
     if (notes) formData.append("notes", notes);
+    formData.append("vehicle_type_id", vehicleTypeId);
+    formData.append("violation_id", violationId);
+    if (shiftId) formData.append("shift_id", parseInt(shiftId));
     for (const file of selectedFiles) {
       formData.append("images", file);
     }
 
     const created = await api.createCase(formData);
+
+    if (shiftId) {
+      // Shift mode: increment case count in localStorage and stay in shift flow
+      try {
+        const SHIFT_KEY = "kr_active_shift";
+        const activeShift = JSON.parse(localStorage.getItem(SHIFT_KEY) || "null");
+        if (activeShift && activeShift.id === parseInt(shiftId)) {
+          activeShift.case_count = (activeShift.case_count || 0) + 1;
+          localStorage.setItem(SHIFT_KEY, JSON.stringify(activeShift));
+        }
+      } catch {}
+
+      // Show toast
+      showShiftToast("Fall gespeichert!");
+
+      // Reset form and stay on same page
+      resetFormShift();
+      return;
+    }
+
     openTicket(created);
     resetForm(created.id);
   } catch (err) {

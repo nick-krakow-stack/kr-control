@@ -18,7 +18,7 @@ settings.get("/", requireAdmin, async (c) => {
 settings.put("/", requireAdmin, async (c) => {
   const data = await c.req.json() as Record<string, unknown>;
   const now = new Date().toISOString();
-  const allowed = ["fee_ticket_default", "fee_letter_default"];
+  const allowed = ["fee_ticket_default", "fee_letter_default", "anon_days_new", "anon_days_closed", "anon_days_paid", "fee_offer", "fee_full", "fee_holder_surcharge"];
   for (const key of allowed) {
     if (data[key] !== undefined) {
       await c.env.DB.prepare(

@@ -1,7 +1,139 @@
 import { api } from "../api.js";
-import { STATUS_LABELS, STATUS_COLORS, isSelfControl } from "../config.js";
+import { STATUS_LABELS, STATUS_COLORS, getUser, isSelfControl } from "../config.js";
 
 export async function renderDashboard() {
+  const user = getUser();
+  const role = user?.role;
+
+  if (role === "mitarbeiter") {
+    return renderMitarbeiterDashboard();
+  }
+  if (role === "self_control_business" || role === "self_control_private") {
+    return renderSelfControlDashboard();
+  }
+  // admin, buchhaltung, fallback
+  return renderAdminDashboard();
+}
+
+function renderMitarbeiterDashboard() {
+  const activeShift = (() => {
+    try { return JSON.parse(localStorage.getItem("kr_active_shift") || "null"); } catch { return null; }
+  })();
+
+  return `
+    <div class="p-4 lg:p-8 max-w-4xl mx-auto">
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <p class="text-slate-500 text-sm mt-1">Willkommen zurück</p>
+      </div>
+
+      ${activeShift ? `
+        <div class="bg-blue-600 rounded-2xl p-5 text-white mb-6 shadow-lg">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
+              <span class="font-semibold text-sm">Aktive Schicht</span>
+            </div>
+            <span class="text-blue-200 text-xs">${activeShift.location_name || "–"}</span>
+          </div>
+          <div class="text-3xl font-bold mb-1">${activeShift.location_name || "Schicht läuft"}</div>
+          <div class="text-blue-200 text-sm mb-4">
+            Gestartet: ${new Date(activeShift.started_at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+            · ${activeShift.case_count || 0} Fälle
+          </div>
+          <a href="#/kontrolle" class="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold px-4 py-2 rounded-xl text-sm hover:bg-blue-50 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Zur Kontrolle
+          </a>
+        </div>
+      ` : ""}
+
+      <div id="mitarbeiterStats" class="grid grid-cols-2 gap-4 mb-6">
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 animate-pulse">
+          <div class="h-3 bg-slate-100 rounded w-3/4 mb-3"></div>
+          <div class="h-8 bg-slate-100 rounded w-1/2"></div>
+        </div>
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 animate-pulse">
+          <div class="h-3 bg-slate-100 rounded w-3/4 mb-3"></div>
+          <div class="h-8 bg-slate-100 rounded w-1/2"></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <a href="#/kontrolle" class="bg-blue-600 rounded-2xl p-5 text-white shadow-sm hover:bg-blue-700 active:scale-95 transition-all flex flex-col items-center gap-3">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="font-semibold text-sm text-center">Kontrolle starten</span>
+        </a>
+        <a href="#/cases/new" class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md active:scale-95 transition-all flex flex-col items-center gap-3 text-slate-700">
+          <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          <span class="font-semibold text-sm text-center">Fall melden</span>
+        </a>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 class="font-semibold text-slate-800">Meine letzten Fälle</h2>
+          <a href="#/cases" class="text-sm text-blue-600 font-medium">Alle →</a>
+        </div>
+        <div id="myRecentCases" class="divide-y divide-slate-50">
+          <div class="p-5 text-slate-400 text-sm">Lade Daten...</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSelfControlDashboard() {
+  return `
+    <div class="p-4 lg:p-8 max-w-4xl mx-auto">
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <p class="text-slate-500 text-sm mt-1">Übersicht Ihrer Standorte</p>
+      </div>
+
+      <div id="selfControlLocationCards" class="space-y-4 mb-6">
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 animate-pulse">
+          <div class="h-4 bg-slate-100 rounded w-1/2 mb-3"></div>
+          <div class="h-6 bg-slate-100 rounded w-1/3"></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6">
+        <div class="px-5 py-4 border-b border-slate-100">
+          <h2 class="font-semibold text-slate-800">Second Chance einreichen</h2>
+          <p class="text-xs text-slate-500 mt-1">Gib ein Kennzeichen ein, für das du einen Verstoß zurückziehen möchtest (innerhalb der letzten 24 Stunden).</p>
+        </div>
+        <div class="p-5" id="secondChanceForm">
+          <div id="selfControlLocationSelectWrap" class="mb-4 hidden">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Standort</label>
+            <select id="scLocationSelect" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Kennzeichen</label>
+            <input id="scPlateInput" type="text" inputmode="text"
+              class="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 font-mono uppercase text-lg tracking-wider focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              placeholder="z.B. B-KR 1234" autocomplete="off"/>
+          </div>
+          <button id="btnSecondChance" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors shadow-sm">
+            Anfrage stellen
+          </button>
+          <div id="scResult" class="mt-4 hidden"></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function renderAdminDashboard() {
   return `
     <div class="p-6 lg:p-8 max-w-7xl mx-auto">
       <div class="mb-8">
@@ -97,6 +229,185 @@ export async function renderDashboard() {
 }
 
 export async function initDashboard() {
+  const user = getUser();
+  const role = user?.role;
+
+  if (role === "mitarbeiter") {
+    await initMitarbeiterDashboard();
+    return;
+  }
+  if (role === "self_control_business" || role === "self_control_private") {
+    await initSelfControlDashboard();
+    return;
+  }
+  await initAdminDashboard();
+}
+
+async function initMitarbeiterDashboard() {
+  try {
+    const today = new Date();
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+
+    const [cases, shiftsData] = await Promise.all([
+      api.getCases().catch(() => []),
+      api.shifts.list({ date_from: firstOfMonth }).catch(() => []),
+    ]);
+
+    const user = getUser();
+    const myCases = Array.isArray(cases)
+      ? cases.filter((c) => c.reported_by === user?.id || c.reporter_id === user?.id || c.user_id === user?.id)
+      : [];
+    const myCasesMonth = myCases.filter((c) => c.reported_at && c.reported_at >= firstOfMonth + "T00:00:00");
+
+    // Shift hours
+    const myShifts = Array.isArray(shiftsData) ? shiftsData.filter(
+      (s) => s.user_id === user?.id && s.ended_at
+    ) : [];
+    const totalMinutes = myShifts.reduce((sum, s) => {
+      const diff = new Date(s.ended_at) - new Date(s.started_at);
+      return sum + diff / 60000;
+    }, 0);
+    const totalHours = (totalMinutes / 60).toFixed(1);
+
+    const statsEl = document.getElementById("mitarbeiterStats");
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+          <div class="text-sm text-slate-500 mb-2">Meine Fälle diesen Monat</div>
+          <div class="text-3xl font-bold text-slate-800">${myCasesMonth.length}</div>
+        </div>
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+          <div class="text-sm text-slate-500 mb-2">Meine Schichtstunden</div>
+          <div class="text-3xl font-bold text-slate-800">${totalHours}h</div>
+        </div>
+      `;
+    }
+
+    const recentEl = document.getElementById("myRecentCases");
+    if (recentEl) {
+      const recent = myCases.slice(0, 5);
+      if (!recent.length) {
+        recentEl.innerHTML = `<div class="p-5 text-slate-400 text-sm text-center">Noch keine Fälle</div>`;
+      } else {
+        recentEl.innerHTML = recent.map((c) => `
+          <a href="#/cases/${c.id}" class="flex items-center px-5 py-3.5 hover:bg-slate-50 transition-colors cursor-pointer group">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="font-mono font-semibold text-slate-800 text-sm">${c.license_plate}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[c.status] || "bg-slate-100 text-slate-600"}">
+                  ${STATUS_LABELS[c.status] || c.status}
+                </span>
+              </div>
+              <div class="text-xs text-slate-400">${formatDateTime(c.reported_at)}</div>
+            </div>
+            <svg class="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </a>
+        `).join("");
+      }
+    }
+  } catch (err) {
+    console.error("Mitarbeiter-Dashboard-Fehler:", err);
+  }
+}
+
+async function initSelfControlDashboard() {
+  try {
+    const locations = await api.getLocations().catch(() => []);
+
+    // Populate location select if multiple
+    const locSelectWrap = document.getElementById("selfControlLocationSelectWrap");
+    const locSelect = document.getElementById("scLocationSelect");
+    if (locations.length > 1 && locSelectWrap && locSelect) {
+      locSelectWrap.classList.remove("hidden");
+      locSelect.innerHTML = locations.map((l) => `<option value="${l.id}">${l.name}</option>`).join("");
+    }
+
+    // Location stats cards
+    const statsEl = document.getElementById("selfControlLocationCards");
+    if (statsEl && locations.length) {
+      const cases = await api.getCases().catch(() => []);
+      const now = new Date();
+      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+
+      statsEl.innerHTML = locations.map((loc) => {
+        const locCases = Array.isArray(cases) ? cases.filter((c) => c.location_id === loc.id) : [];
+        const monthCases = locCases.filter((c) => c.reported_at && c.reported_at >= firstOfMonth + "T00:00:00");
+        const secondChanceCount = locCases.filter((c) => c.status === "second_chance").length;
+        return `
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <div class="font-semibold text-slate-800 mb-3">${loc.name}</div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <div class="text-xs text-slate-500">Fälle diesen Monat</div>
+                <div class="text-2xl font-bold text-slate-800">${monthCases.length}</div>
+              </div>
+              <div>
+                <div class="text-xs text-slate-500">Second Chance</div>
+                <div class="text-2xl font-bold text-purple-700">${secondChanceCount}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    } else if (statsEl) {
+      statsEl.innerHTML = `<div class="text-slate-400 text-sm">Keine Standorte zugewiesen.</div>`;
+    }
+
+    // Second chance form
+    const plateInput = document.getElementById("scPlateInput");
+    const btn = document.getElementById("btnSecondChance");
+    const resultEl = document.getElementById("scResult");
+
+    if (plateInput) {
+      plateInput.addEventListener("input", (e) => { e.target.value = e.target.value.toUpperCase(); });
+    }
+
+    if (btn) {
+      btn.addEventListener("click", async () => {
+        const plate = plateInput?.value.trim();
+        if (!plate) return;
+
+        const locationId = locations.length === 1
+          ? locations[0].id
+          : (document.getElementById("scLocationSelect")?.value || locations[0]?.id);
+
+        btn.disabled = true;
+        btn.textContent = "Wird gesendet...";
+        resultEl.classList.add("hidden");
+
+        try {
+          const res = await api.secondChanceRequest({ license_plate: plate, location_id: locationId });
+          if (res?.found) {
+            resultEl.innerHTML = `
+              <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-green-800 text-sm">
+                <strong>Anfrage erfolgreich</strong> — Fall wurde auf 'Second Chance' gesetzt.
+              </div>
+            `;
+          } else {
+            resultEl.innerHTML = `
+              <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm">
+                <strong>Anfrage eingegangen</strong> — Kein passender Fall gefunden. Wir wurden benachrichtigt und prüfen manuell.
+              </div>
+            `;
+          }
+          resultEl.classList.remove("hidden");
+        } catch (err) {
+          resultEl.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">Fehler: ${err.message}</div>`;
+          resultEl.classList.remove("hidden");
+        }
+
+        btn.disabled = false;
+        btn.textContent = "Anfrage stellen";
+      });
+    }
+  } catch (err) {
+    console.error("SelfControl-Dashboard-Fehler:", err);
+  }
+}
+
+async function initAdminDashboard() {
   try {
     const [stats, pendingCases] = await Promise.all([
       api.getStats(),

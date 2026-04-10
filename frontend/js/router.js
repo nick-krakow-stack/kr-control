@@ -10,6 +10,16 @@ import { renderPasswordReset, initPasswordReset } from "./views/password-reset.j
 import { renderAdminUsers, initAdminUsers } from "./views/admin-users.js";
 import { renderSelfControlReport, initSelfControlReport } from "./views/self-control-report.js";
 import { renderProfile, initProfile } from "./views/profile.js";
+import { renderKontrolle, initKontrolle } from "./views/kontrolle.js";
+import { renderAdminCustomers, initAdminCustomers } from "./views/admin-customers.js";
+import { renderWhitelist, initWhitelist } from "./views/whitelist.js";
+import { renderAdminShifts, initAdminShifts } from "./views/admin-shifts.js";
+import { renderAdminPanel, initAdminPanel } from "./views/admin-panel.js";
+import { renderSettings, initSettings } from "./views/settings.js";
+import { renderWorkTimes, initWorkTimes } from "./views/work-times.js";
+import { renderAdminWorkTimes, initAdminWorkTimes } from "./views/admin-work-times.js";
+import { renderAdminViolations, initAdminViolations } from "./views/admin-violations.js";
+import { renderAdminVehicleTypes, initAdminVehicleTypes } from "./views/admin-vehicle-types.js";
 import { renderLayout, setActiveNav } from "./app.js";
 import { isSelfControl, isAdmin } from "./config.js";
 
@@ -43,6 +53,16 @@ const routes = {
   "#/report": { render: () => renderLayout(renderCaseNew), init: initCaseNew },
   "#/admin/users": { render: () => renderLayout(renderAdminUsers), init: initAdminUsers },
   "#/profile": { render: () => renderLayout(renderProfile), init: initProfile },
+  "#/kontrolle": { render: () => renderLayout(renderKontrolle), init: initKontrolle },
+  "#/admin/customers": { render: () => renderLayout(renderAdminCustomers), init: initAdminCustomers },
+  "#/whitelist": { render: () => renderLayout(renderWhitelist), init: initWhitelist },
+  "#/admin/shifts": { render: () => renderLayout(renderAdminShifts), init: initAdminShifts },
+  "#/admin": { render: () => renderLayout(renderAdminPanel), init: initAdminPanel },
+  "#/work-times": { render: () => renderLayout(renderWorkTimes), init: initWorkTimes },
+  "#/admin/work-times": { render: () => renderLayout(renderAdminWorkTimes), init: initAdminWorkTimes },
+  "#/admin/violations": { render: () => renderLayout(renderAdminViolations), init: initAdminViolations },
+  "#/admin/vehicle-types": { render: () => renderLayout(renderAdminVehicleTypes), init: initAdminVehicleTypes },
+  "#/settings": { render: () => renderLayout(renderSettings), init: initSettings },
 };
 
 export async function navigate() {
@@ -86,7 +106,7 @@ export async function navigate() {
   }
 
   // Admin-Guard
-  if (hash === "#/admin/users" && !isAdmin()) {
+  if ((hash === "#/admin/users" || hash === "#/admin/customers" || hash === "#/admin/shifts" || hash === "#/admin" || hash === "#/admin/work-times" || hash === "#/admin/violations" || hash === "#/admin/vehicle-types" || hash === "#/settings") && !isAdmin()) {
     window.location.hash = "#/dashboard";
     return;
   }
