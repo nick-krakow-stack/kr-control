@@ -3,13 +3,21 @@ import { Env, User, VALID_ROLES } from "../types";
 import { authMiddleware, requireAdmin } from "../middleware";
 import { hashPassword } from "../auth";
 import { sendInviteEmail } from "../email";
+import { getEffectivePermissions, getCustomerPermissions } from "../utils/permissions";
 
 const users = new Hono<{ Bindings: Env; Variables: { user: User } }>();
 
 // Auth required for all routes
 users.use("*", authMiddleware);
 
-function userToResponse(user: User, locationIds: number[] = []) {
+async function getUserGroupIds(db: D1Database, userId: number): Promise<number[]> {
+  const rows = await db.prepare(
+    "SELECT group_id FROM user_groups WHERE user_id = ?"
+  ).bind(userId).all<{ group_id: number }>();
+  return rows.results.map((r) => r.group_id);
+}
+
+function userToResponse(user: User, locationIds: number[] = [], groupIds: number[] = [], permissions: string[] = []) {
   return {
     id: user.id,
     username: user.username,
@@ -20,6 +28,8 @@ function userToResponse(user: User, locationIds: number[] = []) {
     recall_hours: user.recall_hours,
     created_at: user.created_at,
     location_ids: locationIds,
+    group_ids: groupIds,
+    permissions,
   };
 }
 
@@ -28,6 +38,35 @@ async function getUserLocationIds(db: D1Database, userId: number): Promise<numbe
     "SELECT location_id FROM user_locations WHERE user_id = ?"
   ).bind(userId).all<{ location_id: number }>();
   return rows.results.map((r) => r.location_id);
+}
+
+// Find customer_id for a user (via customers.user_id)
+async function getCustomerIdForUser(db: D1Database, userId: number): Promise<number | null> {
+  const row = await db.prepare("SELECT id FROM customers WHERE user_id = ?")
+    .bind(userId).first<{ id: number }>();
+  return row?.id ?? null;
+}
+
+// Validate that all group permissions are within customer's allowed permissions
+async function validateGroupsForCustomerUser(
+  db: D1Database,
+  groupIds: number[],
+  customerId: number
+): Promise<{ valid: boolean; detail?: string }> {
+  const customerPerms = await getCustomerPermissions(db, customerId);
+
+  for (const groupId of groupIds) {
+    const perms = await db.prepare(
+      "SELECT permission FROM group_permissions WHERE group_id = ?"
+    ).bind(groupId).all<{ permission: string }>();
+
+    for (const { permission } of perms.results) {
+      if (!customerPerms.has(permission as any)) {
+        return { valid: false, detail: `Gruppe enthält Berechtigung "${permission}", die der Kunde nicht hat` };
+      }
+    }
+  }
+  return { valid: true };
 }
 
 // ── Self-service profile endpoints (auth only, no admin required) ──────────
@@ -77,7 +116,14 @@ users.get("/", requireAdmin, async (c) => {
   ).all<User>();
 
   const result = await Promise.all(
-    rows.results.map(async (u) => userToResponse(u, await getUserLocationIds(c.env.DB, u.id)))
+    rows.results.map(async (u) => {
+      const [locationIds, groupIds, perms] = await Promise.all([
+        getUserLocationIds(c.env.DB, u.id),
+        getUserGroupIds(c.env.DB, u.id),
+        getEffectivePermissions(c.env.DB, u.id),
+      ]);
+      return userToResponse(u, locationIds, groupIds, [...perms]);
+    })
   );
   return c.json(result);
 });
@@ -85,7 +131,7 @@ users.get("/", requireAdmin, async (c) => {
 users.post("/", requireAdmin, async (c) => {
   const currentUser = c.get("user");
   const data = await c.req.json();
-  const { username, email, role, recall_hours } = data;
+  const { username, email, role, recall_hours, group_ids } = data;
 
   if (!VALID_ROLES.has(role)) {
     return c.json({ detail: `Ungültige Rolle. Erlaubt: ${[...VALID_ROLES].join(", ")}` }, 400);
@@ -106,8 +152,20 @@ users.post("/", requireAdmin, async (c) => {
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).bind(username, email, role, recall_hours || 24, inviteToken, inviteExpiresAt, currentUser.id).run();
 
+  const newUserId = result.meta.last_row_id as number;
   const newUser = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
-    .bind(result.meta.last_row_id).first<User>();
+    .bind(newUserId).first<User>();
+
+  // Assign groups if provided
+  const assignedGroupIds: number[] = [];
+  if (group_ids?.length > 0) {
+    for (const gId of group_ids as number[]) {
+      await c.env.DB.prepare(
+        "INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)"
+      ).bind(newUserId, gId).run();
+      assignedGroupIds.push(gId);
+    }
+  }
 
   c.executionCtx.waitUntil(
     sendInviteEmail(
@@ -116,14 +174,21 @@ users.post("/", requireAdmin, async (c) => {
     )
   );
 
-  return c.json(userToResponse(newUser!, []), 201);
+  const perms = await getEffectivePermissions(c.env.DB, newUserId);
+  return c.json(userToResponse(newUser!, [], assignedGroupIds, [...perms]), 201);
 });
 
 users.get("/:id", requireAdmin, async (c) => {
+  const userId = Number(c.req.param("id"));
   const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
-    .bind(Number(c.req.param("id"))).first<User>();
+    .bind(userId).first<User>();
   if (!user) return c.json({ detail: "Benutzer nicht gefunden" }, 404);
-  return c.json(userToResponse(user, await getUserLocationIds(c.env.DB, user.id)));
+  const [locationIds, groupIds, perms] = await Promise.all([
+    getUserLocationIds(c.env.DB, userId),
+    getUserGroupIds(c.env.DB, userId),
+    getEffectivePermissions(c.env.DB, userId),
+  ]);
+  return c.json(userToResponse(user, locationIds, groupIds, [...perms]));
 });
 
 users.put("/:id", requireAdmin, async (c) => {
@@ -170,7 +235,12 @@ users.put("/:id", requireAdmin, async (c) => {
 
   const updated = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
     .bind(id).first<User>();
-  return c.json(userToResponse(updated!, await getUserLocationIds(c.env.DB, id)));
+  const [locationIds, groupIds, perms] = await Promise.all([
+    getUserLocationIds(c.env.DB, id),
+    getUserGroupIds(c.env.DB, id),
+    getEffectivePermissions(c.env.DB, id),
+  ]);
+  return c.json(userToResponse(updated!, locationIds, groupIds, [...perms]));
 });
 
 users.patch("/:id", requireAdmin, async (c) => {
@@ -195,7 +265,12 @@ users.patch("/:id", requireAdmin, async (c) => {
 
   const updated = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
     .bind(id).first<User>();
-  return c.json(userToResponse(updated!, await getUserLocationIds(c.env.DB, id)));
+  const [locationIds2, groupIds2, perms2] = await Promise.all([
+    getUserLocationIds(c.env.DB, id),
+    getUserGroupIds(c.env.DB, id),
+    getEffectivePermissions(c.env.DB, id),
+  ]);
+  return c.json(userToResponse(updated!, locationIds2, groupIds2, [...perms2]));
 });
 
 users.delete("/:id", requireAdmin, async (c) => {
@@ -225,6 +300,35 @@ users.put("/:id/locations", requireAdmin, async (c) => {
     for (const locId of location_ids) { vals.push(id, locId); }
     await c.env.DB.prepare(`INSERT INTO user_locations (user_id, location_id) VALUES ${inserts}`)
       .bind(...vals).run();
+  }
+
+  return c.json({ ok: true });
+});
+
+// PUT /:id/groups — Gruppen eines Users setzen (vollständiger Austausch)
+users.put("/:id/groups", requireAdmin, async (c) => {
+  const id = Number(c.req.param("id"));
+  const { group_ids } = await c.req.json();
+
+  const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
+    .bind(id).first<User>();
+  if (!user) return c.json({ detail: "Benutzer nicht gefunden" }, 404);
+
+  // If user is a customer user, validate groups are within customer permissions
+  const customerId = await getCustomerIdForUser(c.env.DB, id);
+  if (customerId && group_ids?.length > 0) {
+    const check = await validateGroupsForCustomerUser(c.env.DB, group_ids as number[], customerId);
+    if (!check.valid) return c.json({ detail: check.detail }, 400);
+  }
+
+  await c.env.DB.prepare("DELETE FROM user_groups WHERE user_id = ?").bind(id).run();
+
+  if (group_ids?.length > 0) {
+    for (const gId of group_ids as number[]) {
+      await c.env.DB.prepare(
+        "INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)"
+      ).bind(id, gId).run();
+    }
   }
 
   return c.json({ ok: true });

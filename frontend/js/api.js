@@ -58,6 +58,7 @@ export const api = {
   },
 
   getMe: () => request("GET", "/api/auth/me"),
+  getMyPermissions: () => request("GET", "/api/auth/me/permissions"),
 
   async setupPassword(token, password) {
     const res = await fetch(`${API_BASE}/api/auth/setup-password`, {
@@ -139,7 +140,17 @@ export const api = {
     update: (id, data) => request("PUT", "/api/customers/" + id, data),
     delete: (id) => request("DELETE", "/api/customers/" + id),
     invite: (id) => request("POST", "/api/customers/" + id + "/invite", {}),
+    getPermissions: (id) => request("GET", "/api/customers/" + id).then((d) => d.permissions ?? []),
+    setPermissions: (id, permissions) => request("PUT", "/api/customers/" + id + "/permissions", { permissions }),
   },
+  groups: {
+    list: () => request("GET", "/api/groups"),
+    create: (data) => request("POST", "/api/groups", data),
+    update: (id, data) => request("PATCH", "/api/groups/" + id, data),
+    delete: (id) => request("DELETE", "/api/groups/" + id),
+    getMembers: (id) => request("GET", "/api/groups/" + id + "/members"),
+  },
+  assignUserGroups: (userId, group_ids) => request("PUT", "/api/users/" + userId + "/groups", { group_ids }),
   whitelist: {
     list: (params) => request("GET", "/api/whitelist" + buildQuery(params)),
     create: (data) => request("POST", "/api/whitelist", data),

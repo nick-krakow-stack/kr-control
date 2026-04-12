@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { Env, User, Customer } from "../types";
+import { Env, User, Customer, ALL_PERMISSIONS } from "../types";
 import { authMiddleware, requireAdmin } from "../middleware";
 import { sendInviteEmail } from "../email";
 
@@ -58,7 +58,33 @@ customers.get("/:id", async (c) => {
     "SELECT * FROM locations WHERE customer_id = ?"
   ).bind(id).all();
 
-  return c.json({ ...customer, locations: locations.results });
+  const perms = await c.env.DB.prepare(
+    "SELECT permission FROM customer_permissions WHERE customer_id = ?"
+  ).bind(id).all<{ permission: string }>();
+
+  return c.json({ ...customer, locations: locations.results, permissions: perms.results.map((p) => p.permission) });
+});
+
+// PUT /:id/permissions — setzt Permissions für einen Kunden (vollständiger Austausch)
+customers.put("/:id/permissions", async (c) => {
+  const id = Number(c.req.param("id"));
+  const customer = await c.env.DB.prepare("SELECT * FROM customers WHERE id = ?")
+    .bind(id).first<Customer>();
+  if (!customer) return c.json({ detail: "Kunde nicht gefunden" }, 404);
+
+  const { permissions } = await c.req.json();
+  const validKeys = new Set(Object.keys(ALL_PERMISSIONS));
+  const validPerms: string[] = (permissions ?? []).filter((p: string) => validKeys.has(p));
+
+  await c.env.DB.prepare("DELETE FROM customer_permissions WHERE customer_id = ?").bind(id).run();
+
+  for (const perm of validPerms) {
+    await c.env.DB.prepare(
+      "INSERT OR IGNORE INTO customer_permissions (customer_id, permission) VALUES (?, ?)"
+    ).bind(id, perm).run();
+  }
+
+  return c.json({ permissions: validPerms });
 });
 
 customers.put("/:id", async (c) => {

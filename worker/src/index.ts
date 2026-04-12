@@ -16,6 +16,7 @@ import { workTimesRouter } from "./routes/work-times";
 import violationsRouter from "./routes/violations";
 import caseFeesRouter from "./routes/case-fees";
 import vehicleTypesRouter from "./routes/vehicle-types";
+import groupsRouter from "./routes/groups";
 
 const app = new Hono<{ Bindings: Env; Variables: { user: User } }>();
 
@@ -60,6 +61,7 @@ app.route("/api/work-times", workTimesRouter);
 app.route("/api/violations", violationsRouter);
 app.route("/api/case-fees", caseFeesRouter);
 app.route("/api/vehicle-types", vehicleTypesRouter);
+app.route("/api/groups", groupsRouter);
 
 // Health check
 app.get("/api/health", (c) => c.json({ status: "ok", service: "KR Control API", version: "3.0.0" }));

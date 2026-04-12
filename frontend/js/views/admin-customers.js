@@ -3,6 +3,16 @@ import { api } from "../api.js";
 let allCustomers = [];
 let allLocations = [];
 
+// Kunden-relevante Permissions (view_* Permissions)
+const CUSTOMER_PERMISSIONS = {
+  view_violator_details:  "Falschparker-Details sehen (Kennzeichen, Fahrzeug)",
+  view_case_images:       "Fall-Fotos sehen",
+  view_case_amounts:      "Gebührenbeträge sehen",
+  view_stats_basic:       "Basis-Statistiken (Gesamtquoten)",
+  view_stats_detailed:    "Detaillierte Statistiken (nach Tatbestand/Fahrzeugtyp)",
+  view_controller_times:  "Kontrollzeiten der Mitarbeiter sehen",
+};
+
 export async function renderAdminCustomers() {
   return `
     <div class="p-6 lg:p-8 max-w-7xl mx-auto">
@@ -78,6 +88,20 @@ export async function renderAdminCustomers() {
                 <input id="custIsActive" type="checkbox" class="w-4 h-4 accent-blue-600" checked/>
                 <span class="text-sm font-medium text-slate-700">Aktiv</span>
               </label>
+            </div>
+
+            <!-- Berechtigungen (nur im Edit-Modus) -->
+            <div id="custPermissionsWrapper" class="hidden">
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Berechtigungen (Kunden-Portal)</label>
+              <div class="space-y-1.5 border border-slate-200 rounded-xl p-3 bg-slate-50">
+                ${Object.entries(CUSTOMER_PERMISSIONS).map(([key, label]) => `
+                  <label class="flex items-start gap-2 cursor-pointer hover:bg-white rounded-lg px-2 py-1 transition-colors">
+                    <input type="checkbox" class="cust-perm-checkbox mt-0.5 w-4 h-4 accent-blue-600 flex-shrink-0" value="${key}"/>
+                    <span class="text-sm text-slate-700">${label}</span>
+                  </label>
+                `).join("")}
+              </div>
+              <p class="text-xs text-slate-400 mt-1">Mitarbeiter dieses Kunden können nur Berechtigungen erhalten, die hier freigeschaltet sind.</p>
             </div>
             <div id="customerFormError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl"></div>
             <div class="flex gap-3 pt-2">
@@ -250,13 +274,26 @@ function setupModal() {
     `).join("");
   };
 
+  const setPermissionCheckboxes = (perms = []) => {
+    const permSet = new Set(perms);
+    document.querySelectorAll(".cust-perm-checkbox").forEach((cb) => {
+      cb.checked = permSet.has(cb.value);
+    });
+  };
+
+  const getSelectedPermissions = () => {
+    return Array.from(document.querySelectorAll(".cust-perm-checkbox:checked")).map((cb) => cb.value);
+  };
+
   const open = (editId = null) => {
     modal.classList.remove("hidden");
     errorEl.classList.add("hidden");
     const activeWrapper = document.getElementById("custIsActiveWrapper");
+    const permWrapper = document.getElementById("custPermissionsWrapper");
     if (editId) {
       document.getElementById("customerModalTitle").textContent = "Kunde bearbeiten";
       activeWrapper.classList.remove("hidden");
+      permWrapper.classList.remove("hidden");
       const customer = allCustomers.find((c) => c.id === editId);
       if (customer) {
         document.getElementById("editCustomerId").value = editId;
@@ -264,18 +301,21 @@ function setupModal() {
         document.getElementById("custEmail").value = customer.email || "";
         document.getElementById("custPhone").value = customer.phone || "";
         document.getElementById("custIsActive").checked = customer.is_active !== false;
-        // Fetch details for location pre-selection
+        // Fetch details for location pre-selection and permissions
         api.customers.get(editId).then((detail) => {
           const locIds = Array.isArray(detail.locations) ? detail.locations.map((l) => l.id) : [];
           populateLocationCheckboxes(locIds);
-        }).catch(() => populateLocationCheckboxes([]));
+          setPermissionCheckboxes(detail.permissions || []);
+        }).catch(() => { populateLocationCheckboxes([]); setPermissionCheckboxes([]); });
       }
     } else {
       document.getElementById("customerModalTitle").textContent = "Neuer Kunde";
       activeWrapper.classList.add("hidden");
+      permWrapper.classList.add("hidden");
       document.getElementById("editCustomerId").value = "";
       form.reset();
       populateLocationCheckboxes([]);
+      setPermissionCheckboxes([]);
     }
   };
 
@@ -284,6 +324,8 @@ function setupModal() {
     form.reset();
     document.getElementById("editCustomerId").value = "";
     errorEl.classList.add("hidden");
+    document.getElementById("custPermissionsWrapper").classList.add("hidden");
+    setPermissionCheckboxes([]);
   };
 
   document.getElementById("btnNewCustomer").addEventListener("click", () => open(null));
@@ -319,7 +361,9 @@ function setupModal() {
           is_active: document.getElementById("custIsActive").checked,
           location_ids: selectedLocations,
         };
-        await api.customers.update(parseInt(editId), updateData);
+        const custId = parseInt(editId);
+        await api.customers.update(custId, updateData);
+        await api.customers.setPermissions(custId, getSelectedPermissions());
       } else {
         await api.customers.create(data);
       }

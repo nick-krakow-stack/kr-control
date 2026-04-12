@@ -1,6 +1,30 @@
 // API-Konfiguration
 export const API_BASE = "https://kr-control-api.gndnick.workers.dev";
 
+// Permissions des eingeloggten Users (geladen beim App-Start)
+let userPermissions = new Set();
+
+export async function loadUserPermissions() {
+  try {
+    const token = localStorage.getItem("kr_token");
+    if (!token) { userPermissions = new Set(); return; }
+    const res = await fetch(`${API_BASE}/api/auth/me/permissions`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) { userPermissions = new Set(); return; }
+    const data = await res.json();
+    userPermissions = new Set(data.permissions);
+  } catch {
+    userPermissions = new Set();
+  }
+}
+
+export function can(permission) {
+  const user = getUser();
+  if (user?.role === "admin") return true;
+  return userPermissions.has(permission);
+}
+
 export const STATUS_LABELS = {
   pending: "Ausstehend",
   new: "Neu",

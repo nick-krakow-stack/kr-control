@@ -196,3 +196,32 @@ export interface VehicleType {
   is_active: number;
   effective_sort?: number;
 }
+
+export const ALL_PERMISSIONS = {
+  // Kunden-Sichtbarkeit
+  view_violator_details:  { label: "Falschparker-Details sehen (Kennzeichen, Fahrzeug)", roles: ["self_control_business", "self_control_private"] },
+  view_case_images:       { label: "Fall-Fotos sehen", roles: ["self_control_business", "self_control_private"] },
+  view_case_amounts:      { label: "Gebührenbeträge sehen", roles: ["self_control_business", "self_control_private", "buchhaltung"] },
+  view_stats_basic:       { label: "Basis-Statistiken (Gesamtquoten)", roles: ["self_control_business", "self_control_private"] },
+  view_stats_detailed:    { label: "Detaillierte Statistiken (nach Tatbestand/Fahrzeugtyp)", roles: ["self_control_business", "self_control_private"] },
+  view_controller_times:  { label: "Kontrollzeiten der Mitarbeiter sehen", roles: ["self_control_business", "self_control_private"] },
+  // Mitarbeiter-Berechtigungen
+  edit_vehicle_types:     { label: "Fahrzeugtypen bearbeiten", roles: ["mitarbeiter"] },
+  edit_violations:        { label: "Tatbestände bearbeiten", roles: ["mitarbeiter"] },
+  edit_whitelist:         { label: "Whitelist verwalten", roles: ["mitarbeiter"] },
+  view_reports:           { label: "Auswertungs-Dashboard", roles: ["mitarbeiter", "buchhaltung"] },
+  manage_shifts:          { label: "Schichten verwalten", roles: ["mitarbeiter"] },
+  // Buchhaltung
+  export_data:            { label: "Daten exportieren", roles: ["buchhaltung"] },
+} as const;
+
+export type PermissionKey = keyof typeof ALL_PERMISSIONS;
+
+export interface Group {
+  id: number;
+  name: string;
+  description: string | null;
+  is_active: number;
+  permissions?: string[];
+  member_count?: number;
+}

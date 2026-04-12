@@ -3,6 +3,7 @@ import { ROLE_LABELS, ROLE_COLORS } from "../config.js";
 
 let allUsers = [];
 let allLocations = [];
+let allGroups = [];
 
 export async function renderAdminUsers() {
   return `
@@ -79,6 +80,15 @@ export async function renderAdminUsers() {
               </div>
             </div>
 
+            <!-- Gruppen-Zuweisung -->
+            <div id="groupAssignment">
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Gruppen zuweisen</label>
+              <div id="groupCheckboxes" class="space-y-2 max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-3">
+                <div class="text-slate-400 text-sm">Keine Gruppen vorhanden</div>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">Berechtigungen werden aus den zugewiesenen Gruppen abgeleitet.</p>
+            </div>
+
             <div id="editOnlyFields" class="hidden">
               <label class="flex items-center gap-2 cursor-pointer">
                 <input id="userIsActive" type="checkbox" checked class="w-4 h-4 rounded accent-blue-600"/>
@@ -107,7 +117,11 @@ export async function renderAdminUsers() {
 
 export async function initAdminUsers() {
   try {
-    [allUsers, allLocations] = await Promise.all([api.getUsers(), api.getLocations()]);
+    [allUsers, allLocations, allGroups] = await Promise.all([
+      api.getUsers(),
+      api.getLocations(),
+      api.groups.list().catch(() => []),
+    ]);
     renderTable();
     setupModal();
     setupSearch();
@@ -248,6 +262,34 @@ function getSelectedLocationIds() {
   return Array.from(document.querySelectorAll(".loc-checkbox:checked")).map((cb) => parseInt(cb.value));
 }
 
+function renderGroupCheckboxes(selectedIds = []) {
+  const container = document.getElementById("groupCheckboxes");
+  if (!allGroups.length) {
+    container.innerHTML = `<div class="text-slate-400 text-sm">Keine Gruppen vorhanden</div>`;
+    return;
+  }
+  const activeGroups = allGroups.filter((g) => g.is_active);
+  if (!activeGroups.length) {
+    container.innerHTML = `<div class="text-slate-400 text-sm">Keine aktiven Gruppen vorhanden</div>`;
+    return;
+  }
+  container.innerHTML = activeGroups.map((g) => `
+    <label class="flex items-start gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded-lg">
+      <input type="checkbox" class="grp-checkbox mt-0.5 w-4 h-4 accent-blue-600" value="${g.id}"
+        ${selectedIds.includes(g.id) ? "checked" : ""}/>
+      <div>
+        <span class="text-sm text-slate-700">${g.name}</span>
+        ${g.description ? `<span class="text-xs text-slate-400 ml-1">${g.description}</span>` : ""}
+        ${g.permissions?.length ? `<div class="text-xs text-slate-400">${g.permissions.length} Berechtigung${g.permissions.length !== 1 ? "en" : ""}</div>` : ""}
+      </div>
+    </label>
+  `).join("");
+}
+
+function getSelectedGroupIds() {
+  return Array.from(document.querySelectorAll(".grp-checkbox:checked")).map((cb) => parseInt(cb.value));
+}
+
 function setupModal() {
   const modal = document.getElementById("userModal");
   const form = document.getElementById("userForm");
@@ -262,11 +304,13 @@ function setupModal() {
     document.getElementById("editOnlyFields").classList.add("hidden");
     errorEl.classList.add("hidden");
     renderLocationCheckboxes([]);
+    renderGroupCheckboxes([]);
   };
 
   document.getElementById("btnNewUser").addEventListener("click", () => {
     close();
     renderLocationCheckboxes([]);
+    renderGroupCheckboxes([]);
     open();
   });
   document.getElementById("userModalClose").addEventListener("click", close);
@@ -282,6 +326,7 @@ function setupModal() {
     errorEl.classList.add("hidden");
 
     const locationIds = getSelectedLocationIds();
+    const groupIds = getSelectedGroupIds();
 
     try {
       if (editId) {
@@ -294,17 +339,19 @@ function setupModal() {
           is_active: document.getElementById("userIsActive").checked,
         });
         await api.assignLocations(userId, locationIds);
+        await api.assignUserGroups(userId, groupIds);
       } else {
         const newUser = await api.createUser({
           username: document.getElementById("userUsername").value.trim(),
           email: document.getElementById("userEmail").value.trim(),
           role: document.getElementById("userRole").value,
           recall_hours: parseInt(document.getElementById("userRecallHours").value) || 24,
+          group_ids: groupIds,
         });
         await api.assignLocations(newUser.id, locationIds);
       }
       close();
-      [allUsers, allLocations] = await Promise.all([api.getUsers(), api.getLocations()]);
+      [allUsers, allLocations, allGroups] = await Promise.all([api.getUsers(), api.getLocations(), api.groups.list().catch(() => [])]);
       renderTable();
     } catch (err) {
       errorEl.textContent = err.message;
@@ -327,6 +374,7 @@ function setupModal() {
     document.getElementById("userIsActive").checked = user.is_active;
     document.getElementById("editOnlyFields").classList.remove("hidden");
     renderLocationCheckboxes(user.location_ids || []);
+    renderGroupCheckboxes(user.group_ids || []);
     open();
   };
 

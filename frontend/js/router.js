@@ -20,8 +20,9 @@ import { renderWorkTimes, initWorkTimes } from "./views/work-times.js";
 import { renderAdminWorkTimes, initAdminWorkTimes } from "./views/admin-work-times.js";
 import { renderAdminViolations, initAdminViolations } from "./views/admin-violations.js";
 import { renderAdminVehicleTypes, initAdminVehicleTypes } from "./views/admin-vehicle-types.js";
+import { renderAdminGroups, initAdminGroups } from "./views/admin-groups.js";
 import { renderLayout, setActiveNav } from "./app.js";
-import { isSelfControl, isAdmin } from "./config.js";
+import { isSelfControl, isAdmin, loadUserPermissions } from "./config.js";
 
 const isLoggedIn = () => !!localStorage.getItem("kr_token");
 
@@ -62,6 +63,7 @@ const routes = {
   "#/admin/work-times": { render: () => renderLayout(renderAdminWorkTimes), init: initAdminWorkTimes },
   "#/admin/violations": { render: () => renderLayout(renderAdminViolations), init: initAdminViolations },
   "#/admin/vehicle-types": { render: () => renderLayout(renderAdminVehicleTypes), init: initAdminVehicleTypes },
+  "#/admin/groups": { render: () => renderLayout(renderAdminGroups), init: initAdminGroups },
   "#/settings": { render: () => renderLayout(renderSettings), init: initSettings },
 };
 
@@ -106,7 +108,7 @@ export async function navigate() {
   }
 
   // Admin-Guard
-  if ((hash === "#/admin/users" || hash === "#/admin/customers" || hash === "#/admin/shifts" || hash === "#/admin" || hash === "#/admin/work-times" || hash === "#/admin/violations" || hash === "#/admin/vehicle-types" || hash === "#/settings") && !isAdmin()) {
+  if ((hash === "#/admin/users" || hash === "#/admin/customers" || hash === "#/admin/shifts" || hash === "#/admin" || hash === "#/admin/work-times" || hash === "#/admin/violations" || hash === "#/admin/vehicle-types" || hash === "#/admin/groups" || hash === "#/settings") && !isAdmin()) {
     window.location.hash = "#/dashboard";
     return;
   }

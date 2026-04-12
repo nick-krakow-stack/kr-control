@@ -92,7 +92,8 @@ npx wrangler d1 execute kr-control-db --local --command "..."
 
 | Version        | Wann                              |
 |----------------|-----------------------------------|
-| kr-control-v22 | Aktuell (Stand: 2026-04-10) — Fahrzeugtypen-Feature (vehicle_types, vehicle_type_location_priority, admin-vehicle-types.js) |
+| kr-control-v23 | Aktuell (Stand: 2026-04-12) — RBAC/Gruppen-System (groups, group_permissions, user_groups, customer_permissions, admin-groups.js, can()-Funktion) |
+| kr-control-v22 | Fahrzeugtypen-Feature (vehicle_types, vehicle_type_location_priority, admin-vehicle-types.js) |
 | kr-control-v21 | Gebührenstufen (case_fees, followup_cost_templates, fee settings), Stufen-Block in Fall-Detail, Zahlungs-Modal |
 | kr-control-v20 | Tatbestände (violations + violation_location_priority), Violation-Picker in Fallerfassung, Standort-Priorisierung |
 | kr-control-v19 | (übersprungen / war lokal) |
@@ -130,6 +131,10 @@ Cache muss immer gebumpt werden wenn neue JS-Dateien in STATIC_ASSETS aufgenomme
 - `vehicle_types` — Fahrzeugtypen; Felder: number (TEXT UNIQUE), name (TEXT), sort_order (DEFAULT 0), is_active (DEFAULT 1); 21 Typen vorbelegt (PKW bis landw. Zugmaschine m. Anhänger)
 - `vehicle_type_location_priority` — Standort-spezifische Sortierung; Felder: vehicle_type_id (FK), location_id (FK), sort_order; UNIQUE(vehicle_type_id, location_id)
 - `cases` hat zusätzlich: vehicle_type_number (TEXT, Snapshot), vehicle_type_name (TEXT, Snapshot), violation_code (TEXT, Snapshot), violation_description (TEXT, Snapshot), violation_fee_override (REAL, Snapshot)
+- `groups` — Benutzergruppen für RBAC; Felder: name (UNIQUE), description, is_active (DEFAULT 1)
+- `group_permissions` — Permissions pro Gruppe; Felder: group_id (FK → groups), permission (TEXT); PK (group_id, permission)
+- `user_groups` — Gruppenzugehörigkeit; Felder: user_id (FK → users), group_id (FK → groups); PK (user_id, group_id)
+- `customer_permissions` — Freigeschaltete Permissions pro Kunde (Vererbungsbasis); Felder: customer_id (FK → customers), permission (TEXT); PK (customer_id, permission)
 
 ---
 

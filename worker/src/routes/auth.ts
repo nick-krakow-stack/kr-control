@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword, createAccessToken, verifyToken } from "..
 import { authMiddleware } from "../middleware";
 import { sendPasswordChangedEmail, sendPasswordResetEmail } from "../email";
 import { SignJWT } from "jose";
+import { getEffectivePermissions } from "../utils/permissions";
 
 const auth = new Hono<{ Bindings: Env; Variables: { user: User } }>();
 
@@ -47,6 +48,17 @@ auth.get("/me", authMiddleware, async (c) => {
     role: user.role,
     recall_hours: user.recall_hours,
   });
+});
+
+auth.get("/me/permissions", authMiddleware, async (c) => {
+  const user = c.get("user");
+  // Admin always has all permissions
+  if (user.role === "admin") {
+    const { ALL_PERMISSIONS } = await import("../types");
+    return c.json({ permissions: Object.keys(ALL_PERMISSIONS) });
+  }
+  const perms = await getEffectivePermissions(c.env.DB, user.id);
+  return c.json({ permissions: [...perms] });
 });
 
 auth.post("/setup-password", async (c) => {
